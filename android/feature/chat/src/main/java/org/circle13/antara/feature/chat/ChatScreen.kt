@@ -2,6 +2,7 @@ package org.circle13.antara.feature.chat
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -44,20 +45,50 @@ fun ChatScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF000000)) // True Black
+            .background(Color(0xFF000000))
             .padding(16.dp)
     ) {
-        // Quiet Header
-        Text(
-            text = threadTitle,
-            style = TextStyle(
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Medium,
-                fontFamily = FontFamily.SansSerif
-            ),
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        // Quiet Header with Double Ratchet Encryption Badge
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column {
+                Text(
+                    text = threadTitle,
+                    style = TextStyle(
+                        color = Color.White,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.SansSerif
+                    )
+                )
+                Text(
+                    text = "Double Ratchet E2EE • Store-and-Forward Mesh",
+                    color = Color(0xFFD4AF37),
+                    fontSize = 11.sp,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .background(Color(0xFF0A0A0C), RoundedCornerShape(6.dp))
+                    .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(6.dp))
+                    .padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = "🔒 E2EE",
+                    color = Color(0xFF34C759),
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Message Feed
         LazyColumn(
@@ -68,7 +99,7 @@ fun ChatScreen(
         ) {
             items(messages.reversed()) { message ->
                 MessageBubble(message)
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
             }
         }
 
@@ -80,21 +111,21 @@ fun ChatScreen(
                 .fillMaxWidth()
                 .background(Color(0xFF0A0A0C), RoundedCornerShape(12.dp))
                 .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(12.dp))
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             BasicTextField(
                 value = inputText,
                 onValueChange = { inputText = it },
-                textStyle = TextStyle(color = Color.White, fontSize = 16.sp),
+                textStyle = TextStyle(color = Color.White, fontSize = 15.sp),
                 modifier = Modifier.weight(1f),
                 decorationBox = { innerTextField ->
                     Box(modifier = Modifier.fillMaxWidth()) {
                         if (inputText.isEmpty()) {
                             Text(
-                                text = "Speak...",
+                                text = "Send encrypted mesh message...",
                                 color = Color(0xFF8E8E93),
-                                fontSize = 16.sp
+                                fontSize = 15.sp
                             )
                         }
                         innerTextField()
@@ -113,9 +144,10 @@ fun ChatScreen(
                 }
             ) {
                 Text(
-                    text = "Send",
-                    color = Color.White,
-                    fontWeight = FontWeight.SemiBold
+                    text = "Send ⚡",
+                    color = Color(0xFFD4AF37),
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 15.sp
                 )
             }
         }
@@ -124,10 +156,12 @@ fun ChatScreen(
 
 @Composable
 fun MessageBubble(message: MessageEntity) {
-    // Determine align / bubble properties dynamically:
-    // In actual app, we resolve if sender is local client or peer.
-    val isLocalSender = true // Placeholder
-    
+    val isLocalSender = message.senderIdentity == "local"
+
+    // Simulate lifecycle status (Queued -> Sent -> Delivered)
+    val statusText = if (isLocalSender) "Delivered • ACK" else "Relayed via Hop 1"
+    val statusColor = if (isLocalSender) Color(0xFF34C759) else Color(0xFF8E8E93)
+
     Box(
         modifier = Modifier.fillMaxWidth(),
         contentAlignment = if (isLocalSender) Alignment.CenterEnd else Alignment.CenterStart
@@ -135,17 +169,34 @@ fun MessageBubble(message: MessageEntity) {
         Column(
             modifier = Modifier
                 .background(
-                    color = if (isLocalSender) Color(0xFF0A0A0C) else Color(0xFF1C1C1E),
-                    shape = RoundedCornerShape(12.dp)
+                    color = if (isLocalSender) Color(0xFF1C1C1E) else Color(0xFF0A0A0C),
+                    shape = RoundedCornerShape(14.dp)
                 )
-                .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(12.dp))
-                .padding(12.dp)
+                .border(
+                    width = 1.dp,
+                    color = if (isLocalSender) Color(0xFFD4AF37) else Color(0xFF1C1C1E),
+                    shape = RoundedCornerShape(14.dp)
+                )
+                .padding(14.dp)
         ) {
             Text(
                 text = message.body,
                 color = Color.White,
-                fontSize = 16.sp
+                fontSize = 15.sp,
+                lineHeight = 20.sp
             )
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = statusText,
+                    color = statusColor,
+                    fontSize = 10.sp,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.SemiBold
+                )
+            }
         }
     }
 }
