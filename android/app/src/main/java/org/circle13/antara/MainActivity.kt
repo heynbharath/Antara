@@ -47,6 +47,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import org.circle13.antara.core.database.AntaraRoomDatabase
 import org.circle13.antara.core.database.MessageEntity
@@ -236,8 +237,8 @@ fun AntaraAppContent(
     val coroutineScope = rememberCoroutineScope()
     val database = remember { AntaraRoomDatabase.getDatabase(context) }
 
-    val neighborsState by database.neighborDao().getAllNeighborsFlow().collectAsState(initial = emptyList())
-    val dtnCountState by database.dtnPacketDao().getPacketCountFlow().collectAsState(initial = 0)
+    val neighborsState by database.neighborDao().getAllNeighborsFlow().collectAsState(initial = emptyList(), context = Dispatchers.IO)
+    val dtnCountState by database.dtnPacketDao().getPacketCountFlow().collectAsState(initial = 0, context = Dispatchers.IO)
 
     var activeTab by remember { mutableStateOf(NavigationTab.NODES) }
     var activeChatPeer by remember { mutableStateOf<NeighborEntity?>(null) }
@@ -302,7 +303,7 @@ fun AntaraAppContent(
             Box(modifier = Modifier.weight(1f)) {
                 if (activeChatPeer != null) {
                     val peer = activeChatPeer!!
-                    val messagesState by database.messageDao().getMessagesForThreadFlow(peer.nodeId).collectAsState(initial = emptyList())
+                    val messagesState by database.messageDao().getMessagesForThreadFlow(peer.nodeId).collectAsState(initial = emptyList(), context = Dispatchers.IO)
 
                     ChatScreen(
                         threadTitle = if (peer.isVerifiedContact) "${peer.fullName} (@${peer.username})" else "Node [${peer.nodeId.take(8)}]",

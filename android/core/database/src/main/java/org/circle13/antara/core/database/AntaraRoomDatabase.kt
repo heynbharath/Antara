@@ -100,6 +100,7 @@ abstract class AntaraRoomDatabase : RoomDatabase() {
                 )
                 .fallbackToDestructiveMigration()
                 .fallbackToDestructiveMigrationOnDowngrade()
+                .allowMainThreadQueries()
                 .build()
                 INSTANCE = instance
                 instance
