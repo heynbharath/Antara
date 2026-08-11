@@ -87,7 +87,7 @@ class MainActivity : ComponentActivity() {
         try {
             val permissionsToRequest = mutableListOf<String>()
 
-            // Always request Location for physical BLE & Wi-Fi Direct scanning across all Android versions
+            // Always request Location for physical BLE & Wi-Fi Direct scanning
             permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
             permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
 
@@ -199,7 +199,6 @@ fun AntaraMainContainer(
     if (!isOnboardingCompleted) {
         OnboardingScreen(
             onRequestPermissions = onRequestPermissions,
-            onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption,
             onCompleteOnboarding = { newFullName, newUsername, newNodeId, newPubKey ->
                 fullName = newFullName
                 username = newUsername

@@ -41,7 +41,6 @@ import org.circle13.antara.core.network.CryptoManager
 @Composable
 fun OnboardingScreen(
     onRequestPermissions: () -> Unit,
-    onRequestBatteryOptimizationExemption: () -> Unit,
     onCompleteOnboarding: (fullName: String, username: String, nodeId: String, publicKeyHex: String) -> Unit
 ) {
     var step by remember { mutableIntStateOf(0) }
@@ -60,7 +59,7 @@ fun OnboardingScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // 2-Step Progress Indicator
+        // Step Indicator
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -85,7 +84,7 @@ fun OnboardingScreen(
             }
         }
 
-        // Center Step Content
+        // Center Content
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -109,21 +108,20 @@ fun OnboardingScreen(
             }
         }
 
-        // Bottom Action Button
+        // Action Button
         Column(modifier = Modifier.fillMaxWidth()) {
             Button(
                 onClick = {
                     if (step < 1) {
                         step++
                     } else {
-                        onRequestPermissions()
-                        onRequestBatteryOptimizationExemption()
                         onCompleteOnboarding(
                             fullName.ifBlank { "Antara Node" },
                             username.ifBlank { "node_user" },
                             nodeId,
                             publicKeyHex
                         )
+                        onRequestPermissions()
                     }
                 },
                 modifier = Modifier
