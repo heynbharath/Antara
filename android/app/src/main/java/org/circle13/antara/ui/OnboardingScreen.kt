@@ -121,7 +121,6 @@ fun OnboardingScreen(
                             nodeId,
                             publicKeyHex
                         )
-                        onRequestPermissions()
                     }
                 },
                 modifier = Modifier

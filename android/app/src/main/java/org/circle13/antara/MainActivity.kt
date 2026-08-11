@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,13 +69,17 @@ class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
-        startMeshDaemonServiceSafely()
+        val btConnectGranted = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            ContextCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+        } else true
+        
+        if (btConnectGranted) {
+            startMeshDaemonServiceSafely()
+        }
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
-        checkAndRequestPermissions()
 
         setContent {
             AntaraMainContainer(
@@ -216,6 +221,10 @@ fun AntaraMainContainer(
             }
         )
     } else {
+        LaunchedEffect(Unit) {
+            onRequestPermissions()
+        }
+        
         AntaraAppContent(
             identity = userIdentity,
             onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption,
