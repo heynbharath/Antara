@@ -87,15 +87,18 @@ class MainActivity : ComponentActivity() {
         try {
             val permissionsToRequest = mutableListOf<String>()
 
+            // Always request Location for physical BLE & Wi-Fi Direct scanning across all Android versions
+            permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
+            permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+
+            // Bluetooth permissions for Android 12+ (API 31+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 permissionsToRequest.add(Manifest.permission.BLUETOOTH_SCAN)
                 permissionsToRequest.add(Manifest.permission.BLUETOOTH_CONNECT)
                 permissionsToRequest.add(Manifest.permission.BLUETOOTH_ADVERTISE)
-            } else {
-                permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
-                permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
             }
 
+            // Wi-Fi Direct & Notification permissions for Android 13+ (API 33+)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                 permissionsToRequest.add(Manifest.permission.NEARBY_WIFI_DEVICES)
                 permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
@@ -166,7 +169,7 @@ fun AntaraMainContainer(
     onRequestBatteryOptimizationExemption: () -> Unit
 ) {
     val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("antara_prefs", Context.MODE_PRIVATE) }
+    val prefs = remember { context.getSharedPreferences("antara_prefs_v2", Context.MODE_PRIVATE) }
 
     var isOnboardingCompleted by remember {
         mutableStateOf(prefs.getBoolean("onboarding_completed", false))

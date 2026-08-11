@@ -78,7 +78,7 @@ interface DtnPacketDao {
         RouteEntity::class,
         DtnPacketEntity::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AntaraRoomDatabase : RoomDatabase() {
@@ -96,9 +96,10 @@ abstract class AntaraRoomDatabase : RoomDatabase() {
                 val instance = Room.databaseBuilder(
                     context.applicationContext,
                     AntaraRoomDatabase::class.java,
-                    "antara_secure.db"
+                    "antara_secure_v2.db"
                 )
                 .fallbackToDestructiveMigration()
+                .fallbackToDestructiveMigrationOnDowngrade()
                 .build()
                 INSTANCE = instance
                 instance
