@@ -7,11 +7,13 @@ import android.app.Service
 import android.bluetooth.BluetoothManager
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.content.pm.ServiceInfo
 import android.os.Build
 import android.os.IBinder
 import android.os.PowerManager
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -35,7 +37,6 @@ class AntaraDaemonService : Service() {
         super.onCreate()
         
         try {
-            // Initialize wakelock safely
             val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
             wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Antara::MeshWakelock")
         } catch (e: Exception) {
@@ -43,7 +44,6 @@ class AntaraDaemonService : Service() {
         }
 
         try {
-            // Initialize BLE Adapter safely
             val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
             discoveryService = DiscoveryServiceImpl(bluetoothManager?.adapter)
             connectionManager = ConnectionManagerImpl()
@@ -75,17 +75,23 @@ class AntaraDaemonService : Service() {
 
     private fun startForegroundServiceSafely() {
         try {
-            val notification = buildNotification("Antara Mesh Network Engine is active")
+            val notification = buildNotification("Antara Mesh Engine active")
             
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                try {
-                    startForeground(
-                        notificationId, 
-                        notification, 
-                        ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
-                    )
-                } catch (e: Exception) {
-                    startForeground(notificationId, notification)
+                val hasBtConnect = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    ContextCompat.checkSelfPermission(this, android.Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED
+                } else true
+
+                if (hasBtConnect) {
+                    try {
+                        startForeground(
+                            notificationId, 
+                            notification, 
+                            ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+                        )
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
             } else {
                 startForeground(notificationId, notification)
