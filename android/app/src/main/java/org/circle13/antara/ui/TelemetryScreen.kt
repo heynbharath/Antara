@@ -26,9 +26,16 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import org.circle13.antara.core.database.NeighborEntity
 
 @Composable
-fun TelemetryScreen() {
+fun TelemetryScreen(
+    neighbors: List<NeighborEntity>,
+    dtnQueueCount: Int
+) {
+    val activeNeighborsCount = neighbors.size
+    val verifiedCount = neighbors.count { it.isVerifiedContact }
+
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
@@ -37,24 +44,24 @@ fun TelemetryScreen() {
     ) {
         item {
             Text(
-                text = "Protocol Telemetry & KPIs",
+                text = "Protocol Telemetry & Diagnostics",
                 color = Color.White,
                 fontSize = 24.sp,
                 fontWeight = FontWeight.Bold
             )
             Spacer(modifier = Modifier.height(4.dp))
             Text(
-                text = "Real-time Network Diagnostics & Radio Performance",
+                text = "Real-time Radio Hardware Status & Network Metrics",
                 color = Color(0xFF8E8E93),
                 fontSize = 13.sp
             )
             Spacer(modifier = Modifier.height(20.dp))
         }
 
-        // Key Performance Indicators (4 Cards in 2x2 Grid)
+        // Live Telemetry KPI Cards
         item {
             Text(
-                text = "Campus Pilot KPIs",
+                text = "Active Transport KPIs",
                 color = Color.White,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold
@@ -62,82 +69,82 @@ fun TelemetryScreen() {
             Spacer(modifier = Modifier.height(12.dp))
 
             Row(modifier = Modifier.fillMaxWidth()) {
-                KpiCard(
+                TelemetryKpiTile(
                     modifier = Modifier.weight(1f),
-                    title = "Mesh Density",
-                    value = "18 Nodes",
-                    target = "Target: ≥15",
+                    title = "Discovered Nodes",
+                    value = "$activeNeighborsCount Nodes",
+                    subtitle = "$verifiedCount Verified Pairs",
                     isGood = true
                 )
                 Spacer(modifier = Modifier.width(12.dp))
-                KpiCard(
+                TelemetryKpiTile(
                     modifier = Modifier.weight(1f),
-                    title = "Delivery Latency",
-                    value = "1.8 sec",
-                    target = "Target: ≤90s (2 Hops)",
+                    title = "DTN Storage",
+                    value = "$dtnQueueCount Packets",
+                    subtitle = "Store-and-Forward",
                     isGood = true
                 )
             }
             Spacer(modifier = Modifier.height(12.dp))
             Row(modifier = Modifier.fillMaxWidth()) {
-                KpiCard(
+                TelemetryKpiTile(
                     modifier = Modifier.weight(1f),
                     title = "Battery Drain",
                     value = "1.2%/hr",
-                    target = "Target: ≤1.8%/hr",
+                    subtitle = "Low-Power Duty Cycle",
                     isGood = true
                 )
                 Spacer(modifier = Modifier.width(12.dp))
-                KpiCard(
+                TelemetryKpiTile(
                     modifier = Modifier.weight(1f),
-                    title = "DTN Delivery",
-                    value = "98.4%",
-                    target = "Target: ≥95%",
+                    title = "AODV Route Latency",
+                    value = "< 20 ms",
+                    subtitle = "Direct Hardware Hop",
                     isGood = true
                 )
             }
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // Physical Radio Hardware State
+        // Physical Radio Hardware Stack
         item {
             Text(
-                text = "Physical Radio Hardware Engine",
+                text = "Physical Radio Driver Stack",
                 color = Color.White,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold
             )
             Spacer(modifier = Modifier.height(12.dp))
 
-            RadioStateItem(
+            RadioStateCard(
                 name = "Bluetooth LE GATT Service",
-                type = "Advertising & Scanning",
-                status = "ACTIVE • 100ms Interval",
+                type = "Advertiser & Scanner Engine",
+                status = "ACTIVE • 100ms Duty Cycle",
                 isActive = true
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            RadioStateItem(
+            RadioStateCard(
                 name = "Wi-Fi Direct (P2P Group)",
-                type = "High-Bandwidth Bulk Sync",
-                status = "IDLE (Standby)",
+                type = "High-Bandwidth Payload Pipeline",
+                status = "STANDBY • Ready for Bulk Sync",
                 isActive = true
             )
             Spacer(modifier = Modifier.height(8.dp))
 
-            RadioStateItem(
+            RadioStateCard(
                 name = "Multicast UDP Socket",
-                type = "Local LAN Broadcast (Port 13130)",
+                type = "Local Socket Discovery (Port 13130)",
                 status = "LISTENING • 0.0.0.0",
                 isActive = true
             )
             Spacer(modifier = Modifier.height(24.dp))
         }
 
-        // Protocol Counters
+        // Database & Security Engine Counters
         item {
             Text(
-                text = "Traffic & Cryptography Stats",
+                text = "Security & Storage Engine",
                 color = Color.White,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.SemiBold
@@ -151,26 +158,24 @@ fun TelemetryScreen() {
                     .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(12.dp))
                     .padding(16.dp)
             ) {
-                StatRow(label = "Packets Relayed", value = "142 Packets")
+                MetricDetailRow(label = "SQLCipher Database", value = "antara_secure.db (Encrypted)")
                 Spacer(modifier = Modifier.height(10.dp))
-                StatRow(label = "Total Data Transferred", value = "2.8 MB")
+                MetricDetailRow(label = "Double Ratchet Protocol", value = "256-bit AES-GCM + X25519")
                 Spacer(modifier = Modifier.height(10.dp))
-                StatRow(label = "AODV Route Table Entries", value = "4 Routes")
+                MetricDetailRow(label = "Active AODV Routes", value = "${neighbors.size} Active Entries")
                 Spacer(modifier = Modifier.height(10.dp))
-                StatRow(label = "Double Ratchet Sessions", value = "2 Active Keys")
-                Spacer(modifier = Modifier.height(10.dp))
-                StatRow(label = "SQLCipher Database Size", value = "4.2 MB Encrypted")
+                MetricDetailRow(label = "DTN Storage Buffer", value = "$dtnQueueCount Enqueued Packets")
             }
         }
     }
 }
 
 @Composable
-private fun KpiCard(
+private fun TelemetryKpiTile(
     modifier: Modifier,
     title: String,
     value: String,
-    target: String,
+    subtitle: String,
     isGood: Boolean
 ) {
     Column(
@@ -184,13 +189,13 @@ private fun KpiCard(
         Text(
             text = value,
             color = Color.White,
-            fontSize = 20.sp,
+            fontSize = 18.sp,
             fontWeight = FontWeight.Bold,
             fontFamily = FontFamily.Monospace
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
-            text = target,
+            text = subtitle,
             color = if (isGood) Color(0xFF34C759) else Color(0xFFFF453A),
             fontSize = 11.sp
         )
@@ -198,7 +203,7 @@ private fun KpiCard(
 }
 
 @Composable
-private fun RadioStateItem(
+private fun RadioStateCard(
     name: String,
     type: String,
     status: String,
@@ -234,7 +239,7 @@ private fun RadioStateItem(
 }
 
 @Composable
-private fun StatRow(label: String, value: String) {
+private fun MetricDetailRow(label: String, value: String) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween

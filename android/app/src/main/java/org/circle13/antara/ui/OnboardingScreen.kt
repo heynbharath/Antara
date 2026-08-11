@@ -35,18 +35,21 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import java.security.SecureRandom
+import org.circle13.antara.core.network.CryptoManager
 
 @Composable
 fun OnboardingScreen(
     onRequestPermissions: () -> Unit,
-    onCompleteOnboarding: (username: String, nodeId: String) -> Unit
+    onRequestBatteryOptimizationExemption: () -> Unit,
+    onCompleteOnboarding: (fullName: String, username: String, nodeId: String, publicKeyHex: String) -> Unit
 ) {
     var step by remember { mutableIntStateOf(0) }
-    var username by remember { mutableStateOf("Student_Node") }
-    var generatedNodeId by remember {
-        mutableStateOf(generateMockNodeId())
-    }
+    var fullName by remember { mutableStateOf("Alex Miller") }
+    var username by remember { mutableStateOf("alex_m") }
+
+    val keypair = remember { CryptoManager.generateKeyPair() }
+    var nodeId by remember { mutableStateOf(keypair.first) }
+    var publicKeyHex by remember { mutableStateOf(keypair.second) }
 
     Column(
         modifier = Modifier
@@ -56,7 +59,7 @@ fun OnboardingScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Top Step Progress Indicator
+        // Step Progress Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -81,7 +84,7 @@ fun OnboardingScreen(
             }
         }
 
-        // Center Step Content
+        // Main Center Content
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -91,12 +94,21 @@ fun OnboardingScreen(
             when (step) {
                 0 -> WelcomeStep()
                 1 -> IdentityStep(
+                    fullName = fullName,
+                    onFullNameChange = { fullName = it },
                     username = username,
                     onUsernameChange = { username = it },
-                    nodeId = generatedNodeId,
-                    onRegenerate = { generatedNodeId = generateMockNodeId() }
+                    nodeId = nodeId,
+                    onRegenerate = {
+                        val newKp = CryptoManager.generateKeyPair()
+                        nodeId = newKp.first
+                        publicKeyHex = newKp.second
+                    }
                 )
-                2 -> PermissionsStep(onRequestPermissions = onRequestPermissions)
+                2 -> PermissionsStep(
+                    onRequestPermissions = onRequestPermissions,
+                    onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption
+                )
             }
         }
 
@@ -107,7 +119,12 @@ fun OnboardingScreen(
                     if (step < 2) {
                         step++
                     } else {
-                        onCompleteOnboarding(username.ifBlank { "Anonymous Node" }, generatedNodeId)
+                        onCompleteOnboarding(
+                            fullName.ifBlank { "Antara Node" },
+                            username.ifBlank { "node_user" },
+                            nodeId,
+                            publicKeyHex
+                        )
                     }
                 },
                 modifier = Modifier
@@ -121,9 +138,9 @@ fun OnboardingScreen(
             ) {
                 Text(
                     text = when (step) {
-                        0 -> "Get Started →"
+                        0 -> "Initialize Protocol →"
                         1 -> "Confirm Identity →"
-                        else -> "Enter Antara Mesh"
+                        else -> "Enter Antara Mesh Engine"
                     },
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
@@ -141,7 +158,6 @@ private fun WelcomeStep() {
         verticalArrangement = Arrangement.Center,
         modifier = Modifier.padding(horizontal = 16.dp)
     ) {
-        // Icon / Emblem
         Box(
             modifier = Modifier
                 .size(80.dp)
@@ -149,16 +165,13 @@ private fun WelcomeStep() {
                 .border(1.dp, Color(0xFFD4AF37), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text(
-                text = "⚡",
-                fontSize = 36.sp
-            )
+            Text(text = "⚡", fontSize = 36.sp)
         }
 
         Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = "Antara",
+            text = "Antara Engine",
             style = TextStyle(
                 color = Color.White,
                 fontSize = 36.sp,
@@ -170,7 +183,7 @@ private fun WelcomeStep() {
         Spacer(modifier = Modifier.height(12.dp))
 
         Text(
-            text = "Zero-Knowledge Offline P2P Mesh Network",
+            text = "Zero-Knowledge Disconnected P2P Mesh Network",
             color = Color(0xFFD4AF37),
             fontSize = 14.sp,
             fontWeight = FontWeight.Medium,
@@ -180,7 +193,7 @@ private fun WelcomeStep() {
         Spacer(modifier = Modifier.height(24.dp))
 
         Text(
-            text = "Communicate across campus or disconnected areas without Internet, Cellular, or Wi-Fi infrastructure. Messages hop securely across peer devices using end-to-end encryption.",
+            text = "Communicate securely over physical BLE and Wi-Fi Direct radios without cellular, internet, or central servers. Packets route dynamically across intermediate nodes using Double Ratchet E2EE encryption.",
             color = Color(0xFF8E8E93),
             fontSize = 15.sp,
             textAlign = TextAlign.Center,
@@ -191,6 +204,8 @@ private fun WelcomeStep() {
 
 @Composable
 private fun IdentityStep(
+    fullName: String,
+    onFullNameChange: (String) -> Unit,
     username: String,
     onUsernameChange: (String) -> Unit,
     nodeId: String,
@@ -207,79 +222,85 @@ private fun IdentityStep(
             fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Your local node identity is derived from an Ed25519 keypair generated on this device. No email, phone number, or central server required.",
+            text = "Your identity is anchored to an EC/Ed25519 keypair generated on this hardware. No phone number or email account required.",
             color = Color(0xFF8E8E93),
             fontSize = 14.sp,
             lineHeight = 20.sp
         )
 
-        Spacer(modifier = Modifier.height(28.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
-        // Username Field
-        Text(
-            text = "Display Handle",
-            color = Color(0xFF8E8E93),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(modifier = Modifier.height(6.dp))
+        // Full Name Input
+        Text(text = "Full Name", color = Color(0xFF8E8E93), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Spacer(modifier = Modifier.height(4.dp))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xFF0A0A0C), RoundedCornerShape(12.dp))
                 .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(12.dp))
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(14.dp)
         ) {
             BasicTextField(
-                value = username,
-                onValueChange = onUsernameChange,
-                textStyle = TextStyle(color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Medium),
+                value = fullName,
+                onValueChange = onFullNameChange,
+                textStyle = TextStyle(color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium),
                 modifier = Modifier.weight(1f)
             )
         }
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Handle / Username Input
+        Text(text = "Handle / Handle Tag", color = Color(0xFF8E8E93), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Spacer(modifier = Modifier.height(4.dp))
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0A0A0C), RoundedCornerShape(12.dp))
+                .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(12.dp))
+                .padding(14.dp)
+        ) {
+            Text(text = "@", color = Color(0xFFD4AF37), fontSize = 15.sp, fontWeight = FontWeight.Bold)
+            Spacer(modifier = Modifier.width(4.dp))
+            BasicTextField(
+                value = username,
+                onValueChange = onUsernameChange,
+                textStyle = TextStyle(color = Color.White, fontSize = 15.sp, fontWeight = FontWeight.Medium),
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(16.dp))
 
         // Fingerprint Card
-        Text(
-            text = "Ed25519 Public Key Fingerprint",
-            color = Color(0xFF8E8E93),
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium
-        )
-        Spacer(modifier = Modifier.height(6.dp))
+        Text(text = "SHA-256 Public Key Fingerprint", color = Color(0xFF8E8E93), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Spacer(modifier = Modifier.height(4.dp))
         Column(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color(0xFF0A0A0C), RoundedCornerShape(12.dp))
                 .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(12.dp))
-                .padding(16.dp)
+                .padding(14.dp)
         ) {
             Text(
-                text = "ed25519:$nodeId",
+                text = "node_$nodeId",
                 color = Color(0xFF34C759),
-                fontSize = 13.sp,
+                fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace,
-                lineHeight = 18.sp
+                lineHeight = 16.sp
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                Text(text = "SECURE LOCAL STORAGE", color = Color(0xFF8E8E93), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 Text(
-                    text = "STATUS: ACTIVE KEY",
-                    color = Color(0xFF8E8E93),
-                    fontSize = 10.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = "Regenerate ↻",
+                    text = "Regenerate Key ↻",
                     color = Color(0xFF0A84FF),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
@@ -292,70 +313,79 @@ private fun IdentityStep(
 
 @Composable
 private fun PermissionsStep(
-    onRequestPermissions: () -> Unit
+    onRequestPermissions: () -> Unit,
+    onRequestBatteryOptimizationExemption: () -> Unit
 ) {
     Column(
         horizontalAlignment = Alignment.Start,
         modifier = Modifier.fillMaxWidth()
     ) {
         Text(
-            text = "Radio & Discovery Permissions",
+            text = "Hardware Permissions & Reliability",
             color = Color.White,
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold
         )
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Antara operates directly over physical radios. To discover nearby peer nodes without internet, the Android operating system requires radio access permissions.",
+            text = "To maintain low-power continuous mesh routing in the background without being killed by Android Doze mode, grant physical radio & battery optimization access.",
             color = Color(0xFF8E8E93),
-            fontSize = 14.sp,
-            lineHeight = 20.sp
+            fontSize = 13.sp,
+            lineHeight = 18.sp
         )
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        PermissionItem(
-            title = "Bluetooth LE Scan & Advertise",
+        PermissionRowItem(
+            title = "Bluetooth & Nearby Devices",
             description = "Discovers peer devices in range & broadcasts ephemeral presence beacons.",
             icon = "📡"
         )
+        Spacer(modifier = Modifier.height(8.dp))
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        PermissionItem(
-            title = "Location (Radio Access)",
-            description = "Required by Android OS for BLE and Wi-Fi Direct hardware scanning.",
+        PermissionRowItem(
+            title = "Location Radio Access",
+            description = "Required by Android OS for BLE and Wi-Fi Direct physical scanner.",
             icon = "📍"
         )
+        Spacer(modifier = Modifier.height(8.dp))
 
-        Spacer(modifier = Modifier.height(12.dp))
-
-        PermissionItem(
-            title = "Background Mesh Daemon",
-            description = "Keeps low-power BLE scanner active when app is minimized.",
+        PermissionRowItem(
+            title = "Disable Battery Optimization",
+            description = "Prevents OS from killing background daemon service during sleep mode.",
             icon = "⚡"
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        Button(
-            onClick = onRequestPermissions,
-            modifier = Modifier.fillMaxWidth(),
-            shape = RoundedCornerShape(10.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = Color(0xFF1C1C1E),
-                contentColor = Color.White
-            )
-        ) {
-            Text(text = "Grant System Permissions")
+        Row(modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = onRequestPermissions,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C1C1E), contentColor = Color.White)
+            ) {
+                Text(text = "Grant Permissions", fontSize = 13.sp)
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Button(
+                onClick = onRequestBatteryOptimizationExemption,
+                modifier = Modifier.weight(1f),
+                shape = RoundedCornerShape(10.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C1C1E), contentColor = Color(0xFFD4AF37))
+            ) {
+                Text(text = "Unrestricted Battery", fontSize = 13.sp)
+            }
         }
     }
 }
 
 @Composable
-private fun PermissionItem(
+private fun PermissionRowItem(
     title: String,
     description: String,
     icon: String
@@ -365,31 +395,15 @@ private fun PermissionItem(
             .fillMaxWidth()
             .background(Color(0xFF0A0A0C), RoundedCornerShape(12.dp))
             .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(12.dp))
-            .padding(14.dp),
+            .padding(12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = icon, fontSize = 24.sp)
-        Spacer(modifier = Modifier.width(14.dp))
+        Text(text = icon, fontSize = 20.sp)
+        Spacer(modifier = Modifier.width(12.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = title,
-                color = Color.White,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold
-            )
+            Text(text = title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
             Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = description,
-                color = Color(0xFF8E8E93),
-                fontSize = 12.sp
-            )
+            Text(text = description, color = Color(0xFF8E8E93), fontSize = 11.sp)
         }
     }
-}
-
-private fun generateMockNodeId(): String {
-    val random = SecureRandom()
-    val bytes = ByteArray(16)
-    random.nextBytes(bytes)
-    return bytes.joinToString("") { "%02x".format(it) }
 }

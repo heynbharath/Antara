@@ -4,8 +4,11 @@ import android.Manifest
 import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.PowerManager
+import android.provider.Settings
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
@@ -28,10 +31,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -43,13 +47,17 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.launch
+import org.circle13.antara.core.database.AntaraRoomDatabase
 import org.circle13.antara.core.database.MessageEntity
 import org.circle13.antara.core.database.NeighborEntity
 import org.circle13.antara.core.network.AntaraDaemonService
+import org.circle13.antara.core.network.UserIdentity
 import org.circle13.antara.feature.chat.ChatScreen
 import org.circle13.antara.feature.dashboard.DashboardScreen
 import org.circle13.antara.ui.IdentityScreen
 import org.circle13.antara.ui.OnboardingScreen
+import org.circle13.antara.ui.QrPairingDialog
 import org.circle13.antara.ui.TelemetryScreen
 import org.circle13.antara.ui.TopologyScreen
 import java.util.UUID
@@ -70,7 +78,8 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             AntaraMainContainer(
-                onRequestPermissions = { checkAndRequestPermissions() }
+                onRequestPermissions = { checkAndRequestPermissions() },
+                onRequestBatteryOptimizationExemption = { requestBatteryOptimizationExemption() }
             )
         }
     }
@@ -88,6 +97,7 @@ class MainActivity : ComponentActivity() {
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            permissionsToRequest.add(Manifest.permission.NEARBY_WIFI_DEVICES)
             permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
         }
 
@@ -97,6 +107,22 @@ class MainActivity : ComponentActivity() {
 
         if (missingPermissions.isNotEmpty()) {
             requestPermissionLauncher.launch(missingPermissions.toTypedArray())
+        }
+    }
+
+    private fun requestBatteryOptimizationExemption() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
+            if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
+                try {
+                    val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
         }
     }
 
@@ -124,7 +150,8 @@ enum class NavigationTab {
 
 @Composable
 fun AntaraMainContainer(
-    onRequestPermissions: () -> Unit
+    onRequestPermissions: () -> Unit,
+    onRequestBatteryOptimizationExemption: () -> Unit
 ) {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("antara_prefs", Context.MODE_PRIVATE) }
@@ -132,31 +159,51 @@ fun AntaraMainContainer(
     var isOnboardingCompleted by remember {
         mutableStateOf(prefs.getBoolean("onboarding_completed", false))
     }
+    var fullName by remember {
+        mutableStateOf(prefs.getString("full_name", "Alex Miller") ?: "Alex Miller")
+    }
     var username by remember {
-        mutableStateOf(prefs.getString("username", "Student_Node") ?: "Student_Node")
+        mutableStateOf(prefs.getString("username", "alex_m") ?: "alex_m")
     }
     var nodeId by remember {
-        mutableStateOf(prefs.getString("node_id", "a1b2c3d4e5f678901234567890abcdef") ?: "a1b2c3d4e5f678901234567890abcdef")
+        mutableStateOf(prefs.getString("node_id", "8f3a91b2c4d5e6f7a8b9c0d1e2f3a4b5") ?: "8f3a91b2c4d5e6f7a8b9c0d1e2f3a4b5")
+    }
+    var publicKeyHex by remember {
+        mutableStateOf(prefs.getString("public_key_hex", "") ?: "")
+    }
+
+    val userIdentity = remember(fullName, username, nodeId, publicKeyHex) {
+        UserIdentity(
+            nodeId = nodeId,
+            publicKeyHex = publicKeyHex,
+            username = username,
+            fullName = fullName
+        )
     }
 
     if (!isOnboardingCompleted) {
         OnboardingScreen(
             onRequestPermissions = onRequestPermissions,
-            onCompleteOnboarding = { newUsername, newNodeId ->
+            onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption,
+            onCompleteOnboarding = { newFullName, newUsername, newNodeId, newPubKey ->
+                fullName = newFullName
                 username = newUsername
                 nodeId = newNodeId
+                publicKeyHex = newPubKey
                 prefs.edit()
                     .putBoolean("onboarding_completed", true)
+                    .putString("full_name", newFullName)
                     .putString("username", newUsername)
                     .putString("node_id", newNodeId)
+                    .putString("public_key_hex", newPubKey)
                     .apply()
                 isOnboardingCompleted = true
             }
         )
     } else {
         AntaraAppContent(
-            username = username,
-            nodeId = nodeId,
+            identity = userIdentity,
+            onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption,
             onResetIdentity = {
                 prefs.edit().clear().apply()
                 isOnboardingCompleted = false
@@ -167,68 +214,30 @@ fun AntaraMainContainer(
 
 @Composable
 fun AntaraAppContent(
-    username: String,
-    nodeId: String,
+    identity: UserIdentity,
+    onRequestBatteryOptimizationExemption: () -> Unit,
     onResetIdentity: () -> Unit
 ) {
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+    val database = remember { AntaraRoomDatabase.getDatabase(context) }
+
+    val neighborsState by database.neighborDao().getAllNeighborsFlow().collectAsState(initial = emptyList())
+    val dtnCountState by database.dtnPacketDao().getPacketCountFlow().collectAsState(initial = 0)
+
     var activeTab by remember { mutableStateOf(NavigationTab.NODES) }
     var activeChatPeer by remember { mutableStateOf<NeighborEntity?>(null) }
+    var isQrDialogVisible by remember { mutableStateOf(false) }
 
-    // Seed mock neighbor nodes
-    val neighbors = remember {
-        mutableStateListOf(
-            NeighborEntity(
-                nodeId = "a1b2c3d4e5f678901234567890abcdef",
-                rssi = -64,
-                batteryLevel = 88,
-                trustScore = 0.95,
-                queueDepth = 0.0,
-                lastSeen = System.currentTimeMillis()
-            ),
-            NeighborEntity(
-                nodeId = "f9e8d7c6b5a432109876543210fedcba",
-                rssi = -78,
-                batteryLevel = 45,
-                trustScore = 0.82,
-                queueDepth = 0.0,
-                lastSeen = System.currentTimeMillis() - 12000
-            ),
-            NeighborEntity(
-                nodeId = "9a8b7c6d5e4f32100123456789abcdef",
-                rssi = -55,
-                batteryLevel = 92,
-                trustScore = 0.99,
-                queueDepth = 0.0,
-                lastSeen = System.currentTimeMillis() - 5000
-            )
-        )
-    }
-
-    // Messages storage per thread
-    val threadMessages = remember {
-        mutableMapOf<String, MutableList<MessageEntity>>(
-            "a1b2c3d4e5f678901234567890abcdef" to mutableStateListOf(
-                MessageEntity(
-                    messageId = UUID.randomUUID().toString(),
-                    threadId = "a1b2c3d4e5f678901234567890abcdef",
-                    timestamp = System.currentTimeMillis() - 60000,
-                    body = "Node active in campus mesh domain.",
-                    vectorClockJson = "{}",
-                    parentsJson = "[]",
-                    senderIdentity = "a1b2c3d4e5f678901234567890abcdef"
-                )
-            ),
-            "9a8b7c6d5e4f32100123456789abcdef" to mutableStateListOf(
-                MessageEntity(
-                    messageId = UUID.randomUUID().toString(),
-                    threadId = "9a8b7c6d5e4f32100123456789abcdef",
-                    timestamp = System.currentTimeMillis() - 30000,
-                    body = "Library relay node connected via BLE.",
-                    vectorClockJson = "{}",
-                    parentsJson = "[]",
-                    senderIdentity = "9a8b7c6d5e4f32100123456789abcdef"
-                )
-            )
+    if (isQrDialogVisible) {
+        QrPairingDialog(
+            myIdentity = identity,
+            onDismiss = { isQrDialogVisible = false },
+            onPairVerifiedContact = { newContact ->
+                coroutineScope.launch {
+                    database.neighborDao().insertOrUpdateNeighbor(newContact)
+                }
+            }
         )
     }
 
@@ -240,13 +249,13 @@ fun AntaraAppContent(
 
             // Global Status Banner
             TopStatusBanner(
-                username = username,
-                nodeId = nodeId,
-                activePeersCount = neighbors.size
+                identity = identity,
+                activePeersCount = neighborsState.size
             )
 
             // Back button when inside Chat view
             if (activeChatPeer != null) {
+                val peer = activeChatPeer!!
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -263,54 +272,56 @@ fun AntaraAppContent(
                     )
                     Spacer(modifier = Modifier.width(16.dp))
                     Text(
-                        text = "Node [${activeChatPeer?.nodeId?.take(8)}]",
+                        text = if (peer.isVerifiedContact) peer.fullName else "Node [${peer.nodeId.take(8)}]",
                         color = Color.White,
                         fontSize = 15.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        fontFamily = FontFamily.Monospace
+                        fontWeight = FontWeight.SemiBold
                     )
                 }
             }
 
-            // Main Content Body
+            // Main Body Content
             Box(modifier = Modifier.weight(1f)) {
                 if (activeChatPeer != null) {
                     val peer = activeChatPeer!!
-                    val messagesList = threadMessages.getOrPut(peer.nodeId) { mutableStateListOf() }
+                    val messagesState by database.messageDao().getMessagesForThreadFlow(peer.nodeId).collectAsState(initial = emptyList())
+
                     ChatScreen(
-                        threadTitle = "Node [${peer.nodeId.take(8)}]",
-                        messages = messagesList,
-                        onSendMessage = { newText ->
-                            val newMessage = MessageEntity(
-                                messageId = UUID.randomUUID().toString(),
-                                threadId = peer.nodeId,
-                                timestamp = System.currentTimeMillis(),
-                                body = newText,
-                                vectorClockJson = "{}",
-                                parentsJson = "[]",
-                                senderIdentity = "local"
-                            )
-                            messagesList.add(newMessage)
+                        threadTitle = if (peer.isVerifiedContact) "${peer.fullName} (@${peer.username})" else "Node [${peer.nodeId.take(8)}]",
+                        messages = messagesState,
+                        onSendMessage = { text ->
+                            coroutineScope.launch {
+                                val msg = MessageEntity(
+                                    messageId = UUID.randomUUID().toString(),
+                                    threadId = peer.nodeId,
+                                    timestamp = System.currentTimeMillis(),
+                                    body = text,
+                                    senderIdentity = "local"
+                                )
+                                database.messageDao().insertMessage(msg)
+                            }
                         }
                     )
                 } else {
                     when (activeTab) {
-                        NavigationTab.NODES -> DashboardScreen(
-                            neighbors = neighbors,
-                            onSelectPeer = { selectedPeer -> activeChatPeer = selectedPeer }
-                        )
-                        NavigationTab.MESSAGES -> DashboardScreen(
-                            neighbors = neighbors,
-                            onSelectPeer = { selectedPeer -> activeChatPeer = selectedPeer }
+                        NavigationTab.NODES, NavigationTab.MESSAGES -> DashboardScreen(
+                            neighbors = neighborsState,
+                            onSelectPeer = { peer -> activeChatPeer = peer },
+                            onOpenQrPairing = { isQrDialogVisible = true }
                         )
                         NavigationTab.TOPOLOGY -> TopologyScreen(
-                            localNodeId = nodeId,
-                            activePeersCount = neighbors.size
+                            localNodeId = identity.nodeId,
+                            neighbors = neighborsState,
+                            dtnQueueCount = dtnCountState
                         )
-                        NavigationTab.TELEMETRY -> TelemetryScreen()
+                        NavigationTab.TELEMETRY -> TelemetryScreen(
+                            neighbors = neighborsState,
+                            dtnQueueCount = dtnCountState
+                        )
                         NavigationTab.IDENTITY -> IdentityScreen(
-                            username = username,
-                            nodeId = nodeId,
+                            identity = identity,
+                            onOpenQrPairing = { isQrDialogVisible = true },
+                            onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption,
                             onResetIdentity = onResetIdentity
                         )
                     }
@@ -330,8 +341,7 @@ fun AntaraAppContent(
 
 @Composable
 fun TopStatusBanner(
-    username: String,
-    nodeId: String,
+    identity: UserIdentity,
     activePeersCount: Int
 ) {
     Row(
@@ -362,12 +372,12 @@ fun TopStatusBanner(
 
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(
-                text = "$username • ",
+                text = "@${identity.username} • ",
                 color = Color(0xFF8E8E93),
                 fontSize = 12.sp
             )
             Text(
-                text = "ed25519:${nodeId.take(6)}",
+                text = "node_${identity.nodeId.take(6)}",
                 color = Color(0xFFD4AF37),
                 fontSize = 12.sp,
                 fontFamily = FontFamily.Monospace

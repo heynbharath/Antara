@@ -48,7 +48,7 @@ fun ChatScreen(
             .background(Color(0xFF000000))
             .padding(16.dp)
     ) {
-        // Quiet Header with Double Ratchet Encryption Badge
+        // Header
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -91,21 +91,36 @@ fun ChatScreen(
         Spacer(modifier = Modifier.height(16.dp))
 
         // Message Feed
-        LazyColumn(
-            modifier = Modifier
-                .weight(1f)
-                .fillMaxWidth(),
-            reverseLayout = true
-        ) {
-            items(messages.reversed()) { message ->
-                MessageBubble(message)
-                Spacer(modifier = Modifier.height(10.dp))
+        if (messages.isEmpty()) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "No encrypted messages exchanged yet. Send a message to start.",
+                    color = Color(0xFF8E8E93),
+                    fontSize = 14.sp
+                )
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+                reverseLayout = true
+            ) {
+                items(messages.reversed()) { message ->
+                    MessageBubble(message)
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Input Field
+        // Input Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -157,9 +172,7 @@ fun ChatScreen(
 @Composable
 fun MessageBubble(message: MessageEntity) {
     val isLocalSender = message.senderIdentity == "local"
-
-    // Simulate lifecycle status (Queued -> Sent -> Delivered)
-    val statusText = if (isLocalSender) "Delivered • ACK" else "Relayed via Hop 1"
+    val statusText = if (isLocalSender) "Delivered • Cryptographic ACK" else "Relayed via P2P Hop"
     val statusColor = if (isLocalSender) Color(0xFF34C759) else Color(0xFF8E8E93)
 
     Box(

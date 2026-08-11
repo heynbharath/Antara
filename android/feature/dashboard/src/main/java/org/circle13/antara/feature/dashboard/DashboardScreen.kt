@@ -19,9 +19,12 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -40,12 +43,31 @@ import org.circle13.antara.core.database.NeighborEntity
 fun DashboardScreen(
     neighbors: List<NeighborEntity>,
     onSelectPeer: (NeighborEntity) -> Unit,
+    onOpenQrPairing: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    var filterTab by remember { mutableIntStateOf(0) } // 0 = Verified Friends, 1 = All Discovered Radio Hops
     var searchQuery by remember { mutableStateOf("") }
 
-    val filteredNeighbors = neighbors.filter {
-        it.nodeId.contains(searchQuery, ignoreCase = true)
+    val verifiedContacts = remember(neighbors) {
+        neighbors.filter { it.isVerifiedContact }
+    }
+
+    val activeRelayNodes = remember(neighbors) {
+        neighbors.filter { !it.isVerifiedContact }
+    }
+
+    val displayedList = remember(neighbors, filterTab, searchQuery) {
+        val baseList = if (filterTab == 0) verifiedContacts else activeRelayNodes
+        if (searchQuery.isBlank()) {
+            baseList
+        } else {
+            baseList.filter {
+                it.username.contains(searchQuery, ignoreCase = true) ||
+                it.fullName.contains(searchQuery, ignoreCase = true) ||
+                it.nodeId.contains(searchQuery, ignoreCase = true)
+            }
+        }
     }
 
     Column(
@@ -54,7 +76,7 @@ fun DashboardScreen(
             .background(Color(0xFF000000))
             .padding(16.dp)
     ) {
-        // Title & Active Radio Scanning Header
+        // Title & Pair QR Button Header
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -62,7 +84,7 @@ fun DashboardScreen(
         ) {
             Column {
                 Text(
-                    text = "Nearby Nodes",
+                    text = "Mesh Network Nodes",
                     style = TextStyle(
                         color = Color.White,
                         fontSize = 24.sp,
@@ -71,40 +93,73 @@ fun DashboardScreen(
                     )
                 )
                 Text(
-                    text = "${neighbors.size} active mesh peers in radio range",
+                    text = "${verifiedContacts.size} Verified Friends • ${activeRelayNodes.size} Active Radio Relays",
                     color = Color(0xFF8E8E93),
                     fontSize = 12.sp
                 )
             }
 
-            // Radio Scanner Active Pill
-            Row(
-                modifier = Modifier
-                    .background(Color(0xFF0A0A0C), RoundedCornerShape(20.dp))
-                    .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(20.dp))
-                    .padding(horizontal = 12.dp, vertical = 6.dp),
-                verticalAlignment = Alignment.CenterVertically
+            Button(
+                onClick = onOpenQrPairing,
+                shape = RoundedCornerShape(20.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFFD4AF37),
+                    contentColor = Color.Black
+                ),
+                modifier = Modifier.height(36.dp)
             ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF34C759))
-                )
-                Spacer(modifier = Modifier.width(6.dp))
-                Text(
-                    text = "BLE Scanning",
-                    color = Color.White,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    fontFamily = FontFamily.Monospace
-                )
+                Text(text = "+ Pair QR", fontSize = 12.sp, fontWeight = FontWeight.Bold)
             }
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        // Search Field
+        // Filter Tabs: Verified Contacts vs Active Radio Relays
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color(0xFF0A0A0C), RoundedCornerShape(10.dp))
+                .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(10.dp))
+                .padding(4.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (filterTab == 0) Color(0xFF1C1C1E) else Color.Transparent)
+                    .clickable { filterTab = 0 }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Verified Contacts (${verifiedContacts.size})",
+                    color = if (filterTab == 0) Color(0xFFD4AF37) else Color(0xFF8E8E93),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (filterTab == 1) Color(0xFF1C1C1E) else Color.Transparent)
+                    .clickable { filterTab = 1 }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Routing Relays (${activeRelayNodes.size})",
+                    color = if (filterTab == 1) Color(0xFFD4AF37) else Color(0xFF8E8E93),
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+
+        // Search Bar
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -120,24 +175,18 @@ fun DashboardScreen(
                 onValueChange = { searchQuery = it },
                 textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
                 modifier = Modifier.weight(1f),
-                decorationBox = { innerTextField ->
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        if (searchQuery.isEmpty()) {
-                            Text(
-                                text = "Search Node ID hash or handle...",
-                                color = Color(0xFF8E8E93),
-                                fontSize = 14.sp
-                            )
-                        }
-                        innerTextField()
+                decorationBox = { inner ->
+                    if (searchQuery.isEmpty()) {
+                        Text(text = "Filter by name, handle, or node ID...", color = Color(0xFF8E8E93), fontSize = 14.sp)
                     }
+                    inner()
                 }
             )
         }
 
         Spacer(modifier = Modifier.height(16.dp))
 
-        if (filteredNeighbors.isEmpty()) {
+        if (displayedList.isEmpty()) {
             Box(
                 modifier = Modifier
                     .weight(1f)
@@ -145,12 +194,14 @@ fun DashboardScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = "📡", fontSize = 32.sp)
+                    Text(text = if (filterTab == 0) "🔑" else "📡", fontSize = 32.sp)
                     Spacer(modifier = Modifier.height(12.dp))
                     Text(
-                        text = "Searching silently for radio signals...",
+                        text = if (filterTab == 0) "No verified contacts paired yet. Tap '+ Pair QR' to pair with a friend."
+                               else "Scanning BLE and Wi-Fi Direct radios for physical mesh relays...",
                         color = Color(0xFF8E8E93),
-                        fontSize = 15.sp
+                        fontSize = 14.sp,
+                        modifier = Modifier.padding(horizontal = 24.dp)
                     )
                 }
             }
@@ -160,9 +211,9 @@ fun DashboardScreen(
                     .weight(1f)
                     .fillMaxWidth()
             ) {
-                items(filteredNeighbors) { neighbor ->
-                    NeighborItem(neighbor = neighbor, onClick = { onSelectPeer(neighbor) })
-                    Spacer(modifier = Modifier.height(12.dp))
+                items(displayedList) { neighbor ->
+                    NeighborCardItem(neighbor = neighbor, onClick = { onSelectPeer(neighbor) })
+                    Spacer(modifier = Modifier.height(10.dp))
                 }
             }
         }
@@ -170,32 +221,35 @@ fun DashboardScreen(
 }
 
 @Composable
-fun NeighborItem(
+fun NeighborCardItem(
     neighbor: NeighborEntity,
     onClick: () -> Unit
 ) {
-    val isBle = neighbor.rssi > -70
-    val transportLabel = if (isBle) "BLE GATT" else "Wi-Fi Direct"
+    val isVerified = neighbor.isVerifiedContact
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .background(Color(0xFF0A0A0C), RoundedCornerShape(14.dp))
-            .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(14.dp))
+            .border(
+                width = 1.dp,
+                color = if (isVerified) Color(0xFFD4AF37) else Color(0xFF1C1C1E),
+                shape = RoundedCornerShape(14.dp)
+            )
             .clickable(onClick = onClick)
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Node Avatar / Type
+        // Icon / Avatar
         Box(
             modifier = Modifier
                 .size(44.dp)
                 .clip(CircleShape)
                 .background(Color(0xFF1C1C1E))
-                .border(1.dp, Color(0xFFD4AF37), CircleShape),
+                .border(1.dp, if (isVerified) Color(0xFFD4AF37) else Color(0xFF2C2C2E), CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = "📱", fontSize = 20.sp)
+            Text(text = if (isVerified) "👤" else "📡", fontSize = 20.sp)
         }
 
         Spacer(modifier = Modifier.width(14.dp))
@@ -203,40 +257,55 @@ fun NeighborItem(
         Column(modifier = Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(
-                    text = "Node [${neighbor.nodeId.take(8)}]",
+                    text = if (isVerified) neighbor.fullName else "Node [${neighbor.nodeId.take(8)}]",
                     color = Color.White,
                     fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
+                    fontWeight = FontWeight.Bold
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Box(
                     modifier = Modifier
-                        .background(Color(0xFF1C1C1E), RoundedCornerShape(4.dp))
+                        .background(
+                            if (isVerified) Color(0xFF1C1C1E) else Color(0xFF0A0A0C),
+                            RoundedCornerShape(4.dp)
+                        )
+                        .border(
+                            1.dp,
+                            if (isVerified) Color(0xFFD4AF37) else Color(0xFF1C1C1E),
+                            RoundedCornerShape(4.dp)
+                        )
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = transportLabel,
-                        color = Color(0xFFD4AF37),
-                        fontSize = 10.sp,
+                        text = if (isVerified) "VERIFIED PAIR" else neighbor.connectionType,
+                        color = if (isVerified) Color(0xFFD4AF37) else Color(0xFF8E8E93),
+                        fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace
                     )
                 }
             }
 
+            Spacer(modifier = Modifier.height(2.dp))
+
+            Text(
+                text = "@${neighbor.username} • SHA-256: node_${neighbor.nodeId.take(6)}",
+                color = Color(0xFF8E8E93),
+                fontSize = 12.sp,
+                fontFamily = FontFamily.Monospace
+            )
+
             Spacer(modifier = Modifier.height(4.dp))
 
             Text(
-                text = "Trust LQI: ${(neighbor.trustScore * 100).toInt()}% • RSSI: ${neighbor.rssi} dBm",
-                color = Color(0xFF8E8E93),
-                fontSize = 12.sp
+                text = "LQI Trust: ${(neighbor.trustScore * 100).toInt()}% • RSSI: ${neighbor.rssi} dBm",
+                color = Color(0xFF34C759),
+                fontSize = 11.sp
             )
         }
 
         Spacer(modifier = Modifier.width(8.dp))
 
-        // Distance & Battery
         Column(horizontalAlignment = Alignment.End) {
             Text(
                 text = "${neighbor.batteryLevel}%",
@@ -246,7 +315,7 @@ fun NeighborItem(
             )
             Spacer(modifier = Modifier.height(2.dp))
             Text(
-                text = "1 Hop",
+                text = "Direct Hop",
                 color = Color(0xFF8E8E93),
                 fontSize = 10.sp,
                 fontFamily = FontFamily.Monospace
