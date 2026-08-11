@@ -2,6 +2,7 @@ package org.circle13.antara.ui
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -59,7 +60,7 @@ fun OnboardingScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.SpaceBetween
     ) {
-        // Step Progress Bar
+        // 2-Step Progress Indicator
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -67,7 +68,7 @@ fun OnboardingScreen(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            repeat(3) { index ->
+            repeat(2) { index ->
                 Box(
                     modifier = Modifier
                         .size(if (index == step) 10.dp else 6.dp)
@@ -78,13 +79,13 @@ fun OnboardingScreen(
                             else Color(0xFF1C1C1E)
                         )
                 )
-                if (index < 2) {
+                if (index < 1) {
                     Spacer(modifier = Modifier.width(12.dp))
                 }
             }
         }
 
-        // Main Center Content
+        // Center Step Content
         Box(
             modifier = Modifier
                 .weight(1f)
@@ -105,10 +106,6 @@ fun OnboardingScreen(
                         publicKeyHex = newKp.second
                     }
                 )
-                2 -> PermissionsStep(
-                    onRequestPermissions = onRequestPermissions,
-                    onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption
-                )
             }
         }
 
@@ -116,9 +113,11 @@ fun OnboardingScreen(
         Column(modifier = Modifier.fillMaxWidth()) {
             Button(
                 onClick = {
-                    if (step < 2) {
+                    if (step < 1) {
                         step++
                     } else {
+                        onRequestPermissions()
+                        onRequestBatteryOptimizationExemption()
                         onCompleteOnboarding(
                             fullName.ifBlank { "Antara Node" },
                             username.ifBlank { "node_user" },
@@ -138,9 +137,8 @@ fun OnboardingScreen(
             ) {
                 Text(
                     text = when (step) {
-                        0 -> "Initialize Protocol →"
-                        1 -> "Confirm Identity →"
-                        else -> "Enter Antara Mesh Engine"
+                        0 -> "Get Started →"
+                        else -> "Initialize & Enter Antara Mesh"
                     },
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Bold
@@ -171,7 +169,7 @@ private fun WelcomeStep() {
         Spacer(modifier = Modifier.height(32.dp))
 
         Text(
-            text = "Antara Engine",
+            text = "Antara Protocol",
             style = TextStyle(
                 color = Color.White,
                 fontSize = 36.sp,
@@ -225,13 +223,13 @@ private fun IdentityStep(
         Spacer(modifier = Modifier.height(6.dp))
 
         Text(
-            text = "Your identity is anchored to an EC/Ed25519 keypair generated on this hardware. No phone number or email account required.",
+            text = "Your identity is anchored to an EC keypair generated on this hardware. No phone number, email, or central account required.",
             color = Color(0xFF8E8E93),
             fontSize = 14.sp,
             lineHeight = 20.sp
         )
 
-        Spacer(modifier = Modifier.height(20.dp))
+        Spacer(modifier = Modifier.height(24.dp))
 
         // Full Name Input
         Text(text = "Full Name", color = Color(0xFF8E8E93), fontSize = 12.sp, fontWeight = FontWeight.Medium)
@@ -254,7 +252,7 @@ private fun IdentityStep(
         Spacer(modifier = Modifier.height(14.dp))
 
         // Handle / Username Input
-        Text(text = "Handle / Handle Tag", color = Color(0xFF8E8E93), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+        Text(text = "Handle Tag", color = Color(0xFF8E8E93), fontSize = 12.sp, fontWeight = FontWeight.Medium)
         Spacer(modifier = Modifier.height(4.dp))
         Row(
             modifier = Modifier
@@ -273,7 +271,7 @@ private fun IdentityStep(
             )
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(20.dp))
 
         // Fingerprint Card
         Text(text = "SHA-256 Public Key Fingerprint", color = Color(0xFF8E8E93), fontSize = 12.sp, fontWeight = FontWeight.Medium)
@@ -298,112 +296,15 @@ private fun IdentityStep(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "SECURE LOCAL STORAGE", color = Color(0xFF8E8E93), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                Text(text = "SECURE LOCAL KEYSTORE", color = Color(0xFF8E8E93), fontSize = 10.sp, fontWeight = FontWeight.Bold)
                 Text(
                     text = "Regenerate Key ↻",
                     color = Color(0xFF0A84FF),
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
-                    modifier = Modifier.clip(RoundedCornerShape(4.dp))
+                    modifier = Modifier.clickable { onRegenerate() }
                 )
             }
-        }
-    }
-}
-
-@Composable
-private fun PermissionsStep(
-    onRequestPermissions: () -> Unit,
-    onRequestBatteryOptimizationExemption: () -> Unit
-) {
-    Column(
-        horizontalAlignment = Alignment.Start,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Text(
-            text = "Hardware Permissions & Reliability",
-            color = Color.White,
-            fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
-        )
-
-        Spacer(modifier = Modifier.height(6.dp))
-
-        Text(
-            text = "To maintain low-power continuous mesh routing in the background without being killed by Android Doze mode, grant physical radio & battery optimization access.",
-            color = Color(0xFF8E8E93),
-            fontSize = 13.sp,
-            lineHeight = 18.sp
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        PermissionRowItem(
-            title = "Bluetooth & Nearby Devices",
-            description = "Discovers peer devices in range & broadcasts ephemeral presence beacons.",
-            icon = "📡"
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        PermissionRowItem(
-            title = "Location Radio Access",
-            description = "Required by Android OS for BLE and Wi-Fi Direct physical scanner.",
-            icon = "📍"
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-
-        PermissionRowItem(
-            title = "Disable Battery Optimization",
-            description = "Prevents OS from killing background daemon service during sleep mode.",
-            icon = "⚡"
-        )
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        Row(modifier = Modifier.fillMaxWidth()) {
-            Button(
-                onClick = onRequestPermissions,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C1C1E), contentColor = Color.White)
-            ) {
-                Text(text = "Grant Permissions", fontSize = 13.sp)
-            }
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            Button(
-                onClick = onRequestBatteryOptimizationExemption,
-                modifier = Modifier.weight(1f),
-                shape = RoundedCornerShape(10.dp),
-                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF1C1C1E), contentColor = Color(0xFFD4AF37))
-            ) {
-                Text(text = "Unrestricted Battery", fontSize = 13.sp)
-            }
-        }
-    }
-}
-
-@Composable
-private fun PermissionRowItem(
-    title: String,
-    description: String,
-    icon: String
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(Color(0xFF0A0A0C), RoundedCornerShape(12.dp))
-            .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(12.dp))
-            .padding(12.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(text = icon, fontSize = 20.sp)
-        Spacer(modifier = Modifier.width(12.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(text = title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(text = description, color = Color(0xFF8E8E93), fontSize = 11.sp)
         }
     }
 }
