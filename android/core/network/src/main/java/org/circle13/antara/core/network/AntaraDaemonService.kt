@@ -40,8 +40,8 @@ class AntaraDaemonService : Service() {
         wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Antara::MeshWakelock")
 
         // Initialize BLE Adapter
-        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as BluetoothManager
-        discoveryService = DiscoveryServiceImpl(bluetoothManager.adapter)
+        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+        discoveryService = DiscoveryServiceImpl(bluetoothManager?.adapter)
         connectionManager = ConnectionManagerImpl()
 
         createNotificationChannel()
