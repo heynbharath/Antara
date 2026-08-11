@@ -1,0 +1,119 @@
+syntax = "proto3";
+
+package org.circle13.antara.protocol;
+
+option java_multiple_files = true;
+option java_package = "org.circle13.antara.protocol";
+option java_outer_classname = "AntaraProto";
+
+// The outer wrapper transmitted across the transport layer
+message Envelope {
+  uint32 version = 1;
+  bytes sender_node_id = 2;       // SHA-256 hash of sender public key
+  bytes recipient_node_id = 3;    // SHA-256 hash of recipient public key
+  uint32 hop_limit = 4;           // Time-to-Live / Hop limit
+  bytes signature = 5;            // Ed25519 signature of payload bytes by sender_node_id
+  PayloadType payload_type = 6;
+  bytes encrypted_payload = 7;     // Ephemeral keys used for encrypting this segment
+}
+
+enum PayloadType {
+  PAYLOAD_UNKNOWN = 0;
+  PAYLOAD_CONTROL = 1;
+  PAYLOAD_SYNC = 2;
+  PAYLOAD_MESSAGE = 3;
+}
+
+// -------------------------------------------------------------
+// Type A: Control Payload (Unencrypted, used for routing handshake)
+message ControlPayload {
+  oneof type {
+    HandshakeInit handshake_init = 1;
+    HandshakeResponse handshake_response = 2;
+    KeepAlive keep_alive = 3;
+    RouteAdvertisement route_adv = 4;
+  }
+}
+
+message HandshakeInit {
+  bytes ephemeral_key = 1;        // Initiator ephemeral X25519 public key
+  bytes identity_key = 2;         // Initiator identity Ed25519 public key (encrypted)
+}
+
+message HandshakeResponse {
+  bytes ephemeral_key = 1;        // Responder ephemeral X25519 public key
+}
+
+message KeepAlive {
+  uint32 battery_percentage = 1;
+  uint32 current_queue_depth = 2;
+}
+
+message RouteAdvertisement {
+  message RouteEntry {
+    bytes destination_node_id = 1;
+    uint32 hop_count = 2;
+    uint64 expires_at = 3;
+  }
+  repeated RouteEntry routes = 1;
+}
+
+// -------------------------------------------------------------
+// Type B: Sync Payload (Encrypted, used for CRDT Merkle DAG exchange)
+message SyncPayload {
+  oneof type {
+    SyncRequest sync_request = 1;
+    SyncResponse sync_response = 2;
+  }
+}
+
+message SyncRequest {
+  repeated bytes known_dag_heads = 1; // List of current Merkle DAG head hashes
+  bytes bloom_filter = 2;             // Bloom filter representing known message IDs
+}
+
+message SyncResponse {
+  repeated MessagePayload missing_messages = 1; // List of messages the peer does not have
+  repeated bytes known_dag_heads = 2;           // Transmitting node's DAG heads
+}
+
+// -------------------------------------------------------------
+// Type C: Message Payload (Encrypted end-to-end, parsed only by recipient)
+message MessagePayload {
+  bytes message_id = 1;            // SHA-256 hash of (content + timestamp + sender)
+  bytes thread_id = 2;             // Unique identifier of the chat thread
+  uint64 timestamp = 3;            // Unix epoch timestamp in milliseconds
+  bytes sender_identity = 4;       // Identity Ed25519 public key
+  
+  // Logical time vector clock tracking causal events
+  map<string, uint64> vector_clock = 5; 
+
+  oneof content {
+    TextMessage text_message = 6;
+    AttachmentMessage attachment_message = 7;
+    ActionMessage action_message = 8;
+  }
+}
+
+message TextMessage {
+  string body = 1;
+}
+
+message AttachmentMessage {
+  string filename = 1;
+  string mime_type = 2;
+  uint64 file_size = 3;
+  bytes file_hash = 4;            // SHA-256 hash for verification during dynamic sync
+  bytes metadata = 5;             // Optional details
+}
+
+// Represents edits, deletes, or custom states (CRDT operations)
+message ActionMessage {
+  enum ActionType {
+    ACTION_UNKNOWN = 0;
+    ACTION_EDIT = 1;
+    ACTION_DELETE = 2;
+  }
+  ActionType action = 1;
+  bytes target_message_id = 2;     // The ID of the message being edited/deleted
+}

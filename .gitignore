@@ -1,0 +1,26 @@
+# Gradle & Android
+.gradle/
+build/
+local.properties
+.navigation/
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aar
+
+# iOS SPM & Xcode
+.build/
+Packages/
+.swiftpm/
+xcuserdata/
+DerivedData/
+*.xcworkspace
+*.xcodeproj
+
+# OS & Editor Caches
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.log
