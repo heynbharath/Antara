@@ -67,14 +67,13 @@ class MainActivity : ComponentActivity() {
     private val requestPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { _ ->
-        startMeshDaemonService()
+        startMeshDaemonServiceSafely()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
         checkAndRequestPermissions()
-        startMeshDaemonService()
 
         setContent {
             AntaraMainContainer(
@@ -85,48 +84,61 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkAndRequestPermissions() {
-        val permissionsToRequest = mutableListOf<String>()
+        try {
+            val permissionsToRequest = mutableListOf<String>()
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            permissionsToRequest.add(Manifest.permission.BLUETOOTH_SCAN)
-            permissionsToRequest.add(Manifest.permission.BLUETOOTH_CONNECT)
-            permissionsToRequest.add(Manifest.permission.BLUETOOTH_ADVERTISE)
-        } else {
-            permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
-            permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
-        }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                permissionsToRequest.add(Manifest.permission.BLUETOOTH_SCAN)
+                permissionsToRequest.add(Manifest.permission.BLUETOOTH_CONNECT)
+                permissionsToRequest.add(Manifest.permission.BLUETOOTH_ADVERTISE)
+            } else {
+                permissionsToRequest.add(Manifest.permission.ACCESS_FINE_LOCATION)
+                permissionsToRequest.add(Manifest.permission.ACCESS_COARSE_LOCATION)
+            }
 
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            permissionsToRequest.add(Manifest.permission.NEARBY_WIFI_DEVICES)
-            permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
-        }
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                permissionsToRequest.add(Manifest.permission.NEARBY_WIFI_DEVICES)
+                permissionsToRequest.add(Manifest.permission.POST_NOTIFICATIONS)
+            }
 
-        val missingPermissions = permissionsToRequest.filter {
-            ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
-        }
+            val missingPermissions = permissionsToRequest.filter {
+                ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
+            }
 
-        if (missingPermissions.isNotEmpty()) {
-            requestPermissionLauncher.launch(missingPermissions.toTypedArray())
+            if (missingPermissions.isNotEmpty()) {
+                requestPermissionLauncher.launch(missingPermissions.toTypedArray())
+            } else {
+                startMeshDaemonServiceSafely()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
     private fun requestBatteryOptimizationExemption() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
-            if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
-                try {
+            try {
+                val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
+                if (powerManager != null && !powerManager.isIgnoringBatteryOptimizations(packageName)) {
                     val intent = Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS).apply {
                         data = Uri.parse("package:$packageName")
                     }
                     startActivity(intent)
-                } catch (e: Exception) {
-                    e.printStackTrace()
+                }
+            } catch (e: Exception) {
+                try {
+                    val fallbackIntent = Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                        data = Uri.parse("package:$packageName")
+                    }
+                    startActivity(fallbackIntent)
+                } catch (ex: Exception) {
+                    ex.printStackTrace()
                 }
             }
         }
     }
 
-    private fun startMeshDaemonService() {
+    private fun startMeshDaemonServiceSafely() {
         try {
             val intent = Intent(this, AntaraDaemonService::class.java)
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
@@ -235,7 +247,11 @@ fun AntaraAppContent(
             onDismiss = { isQrDialogVisible = false },
             onPairVerifiedContact = { newContact ->
                 coroutineScope.launch {
-                    database.neighborDao().insertOrUpdateNeighbor(newContact)
+                    try {
+                        database.neighborDao().insertOrUpdateNeighbor(newContact)
+                    } catch (e: Exception) {
+                        e.printStackTrace()
+                    }
                 }
             }
         )
@@ -291,14 +307,18 @@ fun AntaraAppContent(
                         messages = messagesState,
                         onSendMessage = { text ->
                             coroutineScope.launch {
-                                val msg = MessageEntity(
-                                    messageId = UUID.randomUUID().toString(),
-                                    threadId = peer.nodeId,
-                                    timestamp = System.currentTimeMillis(),
-                                    body = text,
-                                    senderIdentity = "local"
-                                )
-                                database.messageDao().insertMessage(msg)
+                                try {
+                                    val msg = MessageEntity(
+                                        messageId = UUID.randomUUID().toString(),
+                                        threadId = peer.nodeId,
+                                        timestamp = System.currentTimeMillis(),
+                                        body = text,
+                                        senderIdentity = "local"
+                                    )
+                                    database.messageDao().insertMessage(msg)
+                                } catch (e: Exception) {
+                                    e.printStackTrace()
+                                }
                             }
                         }
                     )

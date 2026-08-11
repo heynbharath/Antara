@@ -3,7 +3,6 @@ package org.circle13.antara.core.network
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
-import android.app.PendingIntent
 import android.app.Service
 import android.bluetooth.BluetoothManager
 import android.content.Context
@@ -35,51 +34,70 @@ class AntaraDaemonService : Service() {
     override fun onCreate() {
         super.onCreate()
         
-        // Initialize wakelock
-        val powerManager = getSystemService(Context.POWER_SERVICE) as PowerManager
-        wakeLock = powerManager.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Antara::MeshWakelock")
+        try {
+            // Initialize wakelock safely
+            val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
+            wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Antara::MeshWakelock")
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
-        // Initialize BLE Adapter
-        val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
-        discoveryService = DiscoveryServiceImpl(bluetoothManager?.adapter)
-        connectionManager = ConnectionManagerImpl()
+        try {
+            // Initialize BLE Adapter safely
+            val bluetoothManager = getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+            discoveryService = DiscoveryServiceImpl(bluetoothManager?.adapter)
+            connectionManager = ConnectionManagerImpl()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
 
         createNotificationChannel()
-        startForegroundService()
-        
-        // Start scanning in the background
-        startMeshNetwork()
     }
 
-    private fun startMeshNetwork() {
-        // Start background BLE advertising
-        val mockToken = ByteArray(16) { 0 } // Ephemeral Discovery Token placeholder
-        discoveryService?.startAdvertising(mockToken, capabilities = 0)
-
-        // Start scanning and pipe matched peers to connection manager
-        discoveryService?.startScanning()?.onEach { event ->
-            // Matched a peer beacon! Negotiate connection state
-            connectionManager?.updateLinkState(event.peerAddressHash, ConnectionState.CONNECTED_BLE)
-        }?.launchIn(scope)
+    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        startForegroundServiceSafely()
+        startMeshNetworkSafely()
+        return START_STICKY
     }
 
-    private fun startForegroundService() {
-        val notification = buildNotification("Antara Network is active")
-        
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-            startForeground(
-                notificationId, 
-                notification, 
-                ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
-            )
-        } else {
-            startForeground(notificationId, notification)
+    private fun startMeshNetworkSafely() {
+        try {
+            val mockToken = ByteArray(16) { 0 }
+            discoveryService?.startAdvertising(mockToken, capabilities = 0)
+
+            discoveryService?.startScanning()?.onEach { event ->
+                connectionManager?.updateLinkState(event.peerAddressHash, ConnectionState.CONNECTED_BLE)
+            }?.launchIn(scope)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    private fun startForegroundServiceSafely() {
+        try {
+            val notification = buildNotification("Antara Mesh Network Engine is active")
+            
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                try {
+                    startForeground(
+                        notificationId, 
+                        notification, 
+                        ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE
+                    )
+                } catch (e: Exception) {
+                    startForeground(notificationId, notification)
+                }
+            } else {
+                startForeground(notificationId, notification)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
     private fun buildNotification(text: String): Notification {
         return NotificationCompat.Builder(this, channelId)
-            .setContentTitle("Antara Mesh Network")
+            .setContentTitle("Antara Mesh Protocol")
             .setContentText(text)
             .setSmallIcon(android.R.drawable.stat_sys_data_bluetooth)
             .setPriority(NotificationCompat.PRIORITY_LOW)
@@ -88,38 +106,49 @@ class AntaraDaemonService : Service() {
     }
 
     private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val serviceChannel = NotificationChannel(
-                channelId,
-                "Antara Mesh Channel",
-                NotificationManager.IMPORTANCE_LOW
-            )
-            val manager = getSystemService(NotificationManager::class.java)
-            manager?.createNotificationChannel(serviceChannel)
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val serviceChannel = NotificationChannel(
+                    channelId,
+                    "Antara Mesh Channel",
+                    NotificationManager.IMPORTANCE_LOW
+                )
+                val manager = getSystemService(NotificationManager::class.java)
+                manager?.createNotificationChannel(serviceChannel)
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
-    // Helper method for transient locks during Wi-Fi direct sync
     fun acquireTransientLock() {
-        wakeLock?.acquire(10 * 60 * 1000L /* 10 minutes max */)
+        try {
+            wakeLock?.acquire(10 * 60 * 1000L)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     fun releaseTransientLock() {
-        if (wakeLock?.isHeld == true) {
-            wakeLock?.release()
+        try {
+            if (wakeLock?.isHeld == true) {
+                wakeLock?.release()
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
-    }
-
-    override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        return START_STICKY
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        discoveryService?.stopAdvertising()
-        discoveryService?.stopScanning()
-        releaseTransientLock()
-        scope.cancel()
+        try {
+            discoveryService?.stopAdvertising()
+            discoveryService?.stopScanning()
+            releaseTransientLock()
+            scope.cancel()
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     override fun onBind(intent: Intent?): IBinder? {
