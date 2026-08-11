@@ -24,7 +24,7 @@ android {
 
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
-    implementation("com.google.protobuf:protobuf-javalite:3.25.1")
+    api("com.google.protobuf:protobuf-javalite:3.25.1")
     
     testImplementation("junit:junit:4.13.2")
 }
