@@ -27,8 +27,8 @@ dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     
     // Room + SQLCipher configurations
-    implementation("androidx.room:room-runtime:2.6.1")
-    implementation("androidx.room:room-ktx:2.6.1")
+    api("androidx.room:room-runtime:2.6.1")
+    api("androidx.room:room-ktx:2.6.1")
     implementation("net.zetetic:android-database-sqlcipher:4.5.4")
 
     // Sub-module dependency
