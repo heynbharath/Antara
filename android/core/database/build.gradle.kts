@@ -7,7 +7,7 @@ plugins {
 
 android {
     namespace = "org.circle13.antara.core.database"
-    compileSdk = 37
+    compileSdk = 35
 
     defaultConfig {
         minSdk = 26
