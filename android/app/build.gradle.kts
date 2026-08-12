@@ -63,8 +63,7 @@ dependencies {
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.foundation:foundation-layout")
 
-    // On-Device AI (Gemini Nano)
-    implementation("com.google.android.gms:play-services-aicore:16.0.0-beta01")
+    // On-Device AI (Gemini Nano) placeholder removed for CI compatibility
 
     // Room
     implementation("androidx.room:room-runtime:2.6.1")
