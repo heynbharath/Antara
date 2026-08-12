@@ -37,8 +37,8 @@ class SyncEngineImpl(
                     threadId = protoMsg.threadId.toHex(),
                     timestamp = protoMsg.timestamp,
                     body = protoMsg.textMessage.body,
-                    vectorClockJson = protoMsg.vectorClockMap.toString(),
-                    parentsJson = "[]", // Traversal links placeholder
+                    vectorClockJson = org.json.JSONObject(protoMsg.vectorClockMap as Map<*, *>).toString(),
+                    parentsJson = "[]", // TODO: Implement DAG parents extraction
                     senderIdentity = protoMsg.senderIdentity.toHex()
                 )
                 messageDao.insertMessage(entity)

@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "org.circle13.antara.core.network"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 26
@@ -24,8 +24,11 @@ android {
 dependencies {
     implementation("androidx.core:core-ktx:1.12.0")
     
-    // Coroutines for async BLE operations
+    // Coroutines for async BLE & UWB operations
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    
+    // Ultra-Wideband (UWB) for Spatial Peer Discovery
+    implementation("androidx.core.uwb:uwb:1.0.0-alpha08")
 
     // Sub-module dependencies
     implementation(project(":core:model"))

@@ -5,12 +5,12 @@ plugins {
 
 android {
     namespace = "org.circle13.antara"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "org.circle13.antara"
         minSdk = 26
-        targetSdk = 35
+        targetSdk = 37
         versionCode = 1
         versionName = "1.0"
 
@@ -62,6 +62,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.foundation:foundation")
     implementation("androidx.compose.foundation:foundation-layout")
+
+    // On-Device AI (Gemini Nano)
+    implementation("com.google.android.gms:play-services-aicore:16.0.0-beta01")
 
     // Room
     implementation("androidx.room:room-runtime:2.6.1")

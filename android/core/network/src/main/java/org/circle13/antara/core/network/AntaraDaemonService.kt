@@ -40,7 +40,7 @@ class AntaraDaemonService : Service() {
             val powerManager = getSystemService(Context.POWER_SERVICE) as? PowerManager
             wakeLock = powerManager?.newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "Antara::MeshWakelock")
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("AntaraDaemon", "Failed to initialize wake lock", e)
         }
 
         try {
@@ -48,7 +48,7 @@ class AntaraDaemonService : Service() {
             discoveryService = DiscoveryServiceImpl(bluetoothManager?.adapter)
             connectionManager = ConnectionManagerImpl()
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("AntaraDaemon", "Failed to initialize managers", e)
         }
 
         createNotificationChannel()
@@ -68,8 +68,10 @@ class AntaraDaemonService : Service() {
             discoveryService?.startScanning()?.onEach { event ->
                 connectionManager?.updateLinkState(event.peerAddressHash, ConnectionState.CONNECTED_BLE)
             }?.launchIn(scope)
+        } catch (e: SecurityException) {
+            android.util.Log.e("AntaraDaemon", "Security exception during mesh start. Missing permissions?", e)
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("AntaraDaemon", "Failed to start mesh network", e)
         }
     }
 
@@ -96,8 +98,14 @@ class AntaraDaemonService : Service() {
             } else {
                 startForeground(notificationId, notification)
             }
+        } catch (e: android.app.ForegroundServiceStartNotAllowedException) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                android.util.Log.e("AntaraDaemon", "Foreground service start not allowed from background", e)
+            }
+        } catch (e: SecurityException) {
+            android.util.Log.e("AntaraDaemon", "Missing permissions to start foreground service", e)
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("AntaraDaemon", "Failed to start foreground service", e)
         }
     }
 
@@ -123,7 +131,7 @@ class AntaraDaemonService : Service() {
                 manager?.createNotificationChannel(serviceChannel)
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("AntaraDaemon", "Failed to create notification channel", e)
         }
     }
 
@@ -131,7 +139,7 @@ class AntaraDaemonService : Service() {
         try {
             wakeLock?.acquire(10 * 60 * 1000L)
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("AntaraDaemon", "Failed to acquire transient lock", e)
         }
     }
 
@@ -141,7 +149,7 @@ class AntaraDaemonService : Service() {
                 wakeLock?.release()
             }
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("AntaraDaemon", "Failed to release transient lock", e)
         }
     }
 
@@ -153,7 +161,7 @@ class AntaraDaemonService : Service() {
             releaseTransientLock()
             scope.cancel()
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("AntaraDaemon", "Error during service teardown", e)
         }
     }
 

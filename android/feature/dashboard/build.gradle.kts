@@ -5,7 +5,7 @@ plugins {
 
 android {
     namespace = "org.circle13.antara.feature.dashboard"
-    compileSdk = 35
+    compileSdk = 37
 
     defaultConfig {
         minSdk = 26

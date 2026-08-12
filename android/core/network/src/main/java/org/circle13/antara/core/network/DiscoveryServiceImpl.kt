@@ -24,6 +24,7 @@ interface DiscoveryService {
 data class DiscoveredPeerEvent(
     val peerAddressHash: ByteArray,
     val signalStrengthRssi: Int,
+    val distanceMeters: Float?, // Ultra-Wideband (UWB) spatial measurement
     val deviceCapabilities: Int,
     val connectionParameters: Map<String, Any>
 )
@@ -64,8 +65,10 @@ class DiscoveryServiceImpl(
             }
 
             advertiser.startAdvertising(settings, data, advertiseCallback)
+        } catch (e: SecurityException) {
+            android.util.Log.e("DiscoveryService", "Missing Bluetooth permissions", e)
         } catch (e: Exception) {
-            e.printStackTrace()
+            android.util.Log.e("DiscoveryService", "Failed to start advertising", e)
         }
     }
 
@@ -106,6 +109,7 @@ class DiscoveryServiceImpl(
                                 DiscoveredPeerEvent(
                                     peerAddressHash = serviceData,
                                     signalStrengthRssi = it.rssi,
+                                    distanceMeters = null, // To be populated by UwbManager session
                                     deviceCapabilities = 0,
                                     connectionParameters = mapOf("device" to it.device)
                                 )

@@ -1,6 +1,11 @@
 package org.circle13.antara.core.network
 
 import java.security.SecureRandom
+import java.security.KeyPairGenerator
+import java.security.KeyFactory
+import java.security.spec.X509EncodedKeySpec
+import java.security.spec.PKCS8EncodedKeySpec
+import javax.crypto.KeyAgreement
 import javax.crypto.Mac
 import javax.crypto.spec.SecretKeySpec
 
@@ -12,23 +17,22 @@ class NoiseHandshake {
     private val secureRandom = SecureRandom()
 
     fun generateKeyPair(): KeyPair {
-        val privateKey = ByteArray(32)
-        val publicKey = ByteArray(32)
-        secureRandom.nextBytes(privateKey)
-        
-        // Simple mock curve mapping for simulation
-        for (i in 0..31) {
-            publicKey[i] = (privateKey[i].toInt() xor 0x5A).toByte()
-        }
-        return KeyPair(publicKey, privateKey)
+        val keyGen = KeyPairGenerator.getInstance("EC")
+        keyGen.initialize(256, secureRandom)
+        val pair = keyGen.generateKeyPair()
+        return KeyPair(pair.public.encoded, pair.private.encoded)
     }
 
-    fun computeDH(localPrivate: ByteArray, remotePublic: ByteArray): ByteArray {
-        val sharedSecret = ByteArray(32)
-        for (i in 0..31) {
-            sharedSecret[i] = (localPrivate[i].toInt() xor remotePublic[i].toInt()).toByte()
-        }
-        return sharedSecret
+    fun computeDH(localPrivateBytes: ByteArray, remotePublicBytes: ByteArray): ByteArray {
+        val keyFactory = KeyFactory.getInstance("EC")
+        val privateKey = keyFactory.generatePrivate(PKCS8EncodedKeySpec(localPrivateBytes))
+        val publicKey = keyFactory.generatePublic(X509EncodedKeySpec(remotePublicBytes))
+        
+        val keyAgreement = KeyAgreement.getInstance("ECDH")
+        keyAgreement.init(privateKey)
+        keyAgreement.doPhase(publicKey, true)
+        
+        return keyAgreement.generateSecret()
     }
 
     fun hkdfDerive(sharedSecret: ByteArray, salt: ByteArray): DerivedKeys {
