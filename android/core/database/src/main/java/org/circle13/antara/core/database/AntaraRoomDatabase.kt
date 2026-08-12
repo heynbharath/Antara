@@ -15,6 +15,9 @@ interface MessageDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertMessage(message: MessageEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertMessages(messages: List<MessageEntity>)
+
     @Query("SELECT * FROM messages WHERE threadId = :threadId ORDER BY timestamp ASC")
     suspend fun getMessagesForThread(threadId: String): List<MessageEntity>
 

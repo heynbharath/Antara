@@ -1,8 +1,15 @@
 package org.circle13.antara.feature.dashboard
 
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,26 +25,31 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableIntStateOf
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.circle13.antara.core.database.NeighborEntity
+
+// Ultra-Premium Color Palette
+val LuxuryBlack = Color(0xFF050505)
+val SurfaceDark = Color(0xFF121212)
+val GoldAccent = Color(0xFFD4AF37)
+val GlassWhite = Color.White.copy(alpha = 0.05f)
+val GlassBorder = Color.White.copy(alpha = 0.1f)
+val TextPrimary = Color(0xFFF5F5F7)
+val TextSecondary = Color(0xFF86868B)
 
 @Composable
 fun DashboardScreen(
@@ -46,174 +58,114 @@ fun DashboardScreen(
     onOpenQrPairing: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var filterTab by remember { mutableIntStateOf(0) } // 0 = Verified Friends, 1 = All Discovered Radio Hops
-    var searchQuery by remember { mutableStateOf("") }
-
-    val verifiedContacts = remember(neighbors) {
-        neighbors.filter { it.isVerifiedContact }
-    }
-
-    val activeRelayNodes = remember(neighbors) {
-        neighbors.filter { !it.isVerifiedContact }
-    }
-
-    val displayedList = remember(neighbors, filterTab, searchQuery) {
-        val baseList = if (filterTab == 0) verifiedContacts else activeRelayNodes
-        if (searchQuery.isBlank()) {
-            baseList
-        } else {
-            baseList.filter {
-                it.username.contains(searchQuery, ignoreCase = true) ||
-                it.fullName.contains(searchQuery, ignoreCase = true) ||
-                it.nodeId.contains(searchQuery, ignoreCase = true)
-            }
-        }
-    }
-
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF000000))
-            .padding(16.dp)
+            .background(LuxuryBlack)
     ) {
-        // Title & Pair QR Button Header
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column {
-                Text(
-                    text = "Mesh Network Nodes",
-                    style = TextStyle(
-                        color = Color.White,
-                        fontSize = 24.sp,
+        // Subtle ambient mesh background glow
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(300.dp)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(GoldAccent.copy(alpha = 0.15f), Color.Transparent),
+                        radius = 600f
+                    )
+                )
+        )
+
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp)) {
+            Spacer(modifier = Modifier.height(64.dp)) // Safe area inset
+
+            // Luxury Header
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Bottom
+            ) {
+                Column {
+                    Text(
+                        text = "Antara",
+                        color = GoldAccent,
+                        fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
+                        letterSpacing = 2.sp,
                         fontFamily = FontFamily.SansSerif
                     )
-                )
-                Text(
-                    text = "${verifiedContacts.size} Verified Friends • ${activeRelayNodes.size} Active Radio Relays",
-                    color = Color(0xFF8E8E93),
-                    fontSize = 12.sp
-                )
-            }
-
-            Button(
-                onClick = onOpenQrPairing,
-                shape = RoundedCornerShape(20.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFFD4AF37),
-                    contentColor = Color.Black
-                ),
-                modifier = Modifier.height(36.dp)
-            ) {
-                Text(text = "+ Pair QR", fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Filter Tabs: Verified Contacts vs Active Radio Relays
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF0A0A0C), RoundedCornerShape(10.dp))
-                .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(10.dp))
-                .padding(4.dp)
-        ) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (filterTab == 0) Color(0xFF1C1C1E) else Color.Transparent)
-                    .clickable { filterTab = 0 }
-                    .padding(vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Verified Contacts (${verifiedContacts.size})",
-                    color = if (filterTab == 0) Color(0xFFD4AF37) else Color(0xFF8E8E93),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(if (filterTab == 1) Color(0xFF1C1C1E) else Color.Transparent)
-                    .clickable { filterTab = 1 }
-                    .padding(vertical = 8.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                    text = "Routing Relays (${activeRelayNodes.size})",
-                    color = if (filterTab == 1) Color(0xFFD4AF37) else Color(0xFF8E8E93),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-            }
-        }
-
-        Spacer(modifier = Modifier.height(14.dp))
-
-        // Search Bar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF0A0A0C), RoundedCornerShape(12.dp))
-                .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(12.dp))
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text(text = "🔍", fontSize = 14.sp)
-            Spacer(modifier = Modifier.width(10.dp))
-            BasicTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                textStyle = TextStyle(color = Color.White, fontSize = 14.sp),
-                modifier = Modifier.weight(1f),
-                decorationBox = { inner ->
-                    if (searchQuery.isEmpty()) {
-                        Text(text = "Filter by name, handle, or node ID...", color = Color(0xFF8E8E93), fontSize = 14.sp)
-                    }
-                    inner()
-                }
-            )
-        }
-
-        Spacer(modifier = Modifier.height(16.dp))
-
-        if (displayedList.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
-                contentAlignment = Alignment.Center
-            ) {
-                Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(text = if (filterTab == 0) "🔑" else "📡", fontSize = 32.sp)
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = if (filterTab == 0) "No verified contacts paired yet. Tap '+ Pair QR' to pair with a friend."
-                               else "Scanning BLE and Wi-Fi Direct radios for physical mesh relays...",
-                        color = Color(0xFF8E8E93),
-                        fontSize = 14.sp,
-                        modifier = Modifier.padding(horizontal = 24.dp)
+                        text = "Spatial Mesh",
+                        color = TextPrimary,
+                        fontSize = 32.sp,
+                        fontWeight = FontWeight.Light,
+                        letterSpacing = (-1).sp
+                    )
+                }
+
+                // Apple-like glass button
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(20.dp))
+                        .background(GlassWhite)
+                        .border(1.dp, GlassBorder, RoundedCornerShape(20.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onOpenQrPairing
+                        )
+                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                ) {
+                    Text(
+                        text = "Pair Node",
+                        color = TextPrimary,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium
                     )
                 }
             }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth()
-            ) {
-                items(displayedList) { neighbor ->
-                    NeighborCardItem(neighbor = neighbor, onClick = { onSelectPeer(neighbor) })
-                    Spacer(modifier = Modifier.height(10.dp))
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            // UWB Radar Visualization
+            UwbRadarPulse(neighborsCount = neighbors.size)
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            Text(
+                text = "ACTIVE NODES",
+                color = TextSecondary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.5.sp
+            )
+            Spacer(modifier = Modifier.height(16.dp))
+
+            if (neighbors.isEmpty()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(24.dp))
+                        .background(SurfaceDark)
+                        .padding(32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "Awaiting ultra-wideband discovery...",
+                        color = TextSecondary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    items(neighbors) { neighbor ->
+                        PremiumNodeCard(neighbor = neighbor, onClick = { onSelectPeer(neighbor) })
+                    }
                 }
             }
         }
@@ -221,104 +173,141 @@ fun DashboardScreen(
 }
 
 @Composable
-fun NeighborCardItem(
-    neighbor: NeighborEntity,
-    onClick: () -> Unit
-) {
+fun PremiumNodeCard(neighbor: NeighborEntity, onClick: () -> Unit) {
     val isVerified = neighbor.isVerifiedContact
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(Color(0xFF0A0A0C), RoundedCornerShape(14.dp))
+            .clip(RoundedCornerShape(24.dp))
+            .background(SurfaceDark)
             .border(
                 width = 1.dp,
-                color = if (isVerified) Color(0xFFD4AF37) else Color(0xFF1C1C1E),
-                shape = RoundedCornerShape(14.dp)
+                color = if (isVerified) GoldAccent.copy(alpha = 0.3f) else GlassBorder,
+                shape = RoundedCornerShape(24.dp)
             )
             .clickable(onClick = onClick)
-            .padding(16.dp),
+            .padding(20.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Icon / Avatar
+        // Avatar
         Box(
             modifier = Modifier
-                .size(44.dp)
+                .size(48.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF1C1C1E))
-                .border(1.dp, if (isVerified) Color(0xFFD4AF37) else Color(0xFF2C2C2E), CircleShape),
+                .background(if (isVerified) GoldAccent.copy(alpha = 0.1f) else Color.Transparent)
+                .border(1.dp, if (isVerified) GoldAccent else GlassBorder, CircleShape),
             contentAlignment = Alignment.Center
         ) {
-            Text(text = if (isVerified) "👤" else "📡", fontSize = 20.sp)
+            Text(
+                text = neighbor.username.take(1).uppercase(),
+                color = if (isVerified) GoldAccent else TextPrimary,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
 
-        Spacer(modifier = Modifier.width(14.dp))
+        Spacer(modifier = Modifier.width(16.dp))
 
         Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = neighbor.fullName,
+                color = TextPrimary,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                letterSpacing = (-0.5).sp
+            )
+            Spacer(modifier = Modifier.height(4.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = if (isVerified) neighbor.fullName else "Node [${neighbor.nodeId.take(8)}]",
-                    color = Color.White,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.width(8.dp))
                 Box(
                     modifier = Modifier
-                        .background(
-                            if (isVerified) Color(0xFF1C1C1E) else Color(0xFF0A0A0C),
-                            RoundedCornerShape(4.dp)
-                        )
-                        .border(
-                            1.dp,
-                            if (isVerified) Color(0xFFD4AF37) else Color(0xFF1C1C1E),
-                            RoundedCornerShape(4.dp)
-                        )
+                        .background(Color(0xFF34C759).copy(alpha = 0.1f), RoundedCornerShape(4.dp))
                         .padding(horizontal = 6.dp, vertical = 2.dp)
                 ) {
                     Text(
-                        text = if (isVerified) "VERIFIED PAIR" else neighbor.connectionType,
-                        color = if (isVerified) Color(0xFFD4AF37) else Color(0xFF8E8E93),
+                        text = "${(neighbor.trustScore * 100).toInt()}% TRUST",
+                        color = Color(0xFF34C759),
                         fontSize = 9.sp,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
+                        letterSpacing = 0.5.sp
                     )
                 }
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "@${neighbor.username}",
+                    color = TextSecondary,
+                    fontSize = 13.sp
+                )
             }
+        }
 
-            Spacer(modifier = Modifier.height(2.dp))
-
+        // Distance / UWB indicator
+        Column(horizontalAlignment = Alignment.End) {
             Text(
-                text = "@${neighbor.username} • SHA-256: node_${neighbor.nodeId.take(6)}",
-                color = Color(0xFF8E8E93),
-                fontSize = 12.sp,
-                fontFamily = FontFamily.Monospace
+                text = "1.2m", // Placeholder for UWB precision
+                color = TextPrimary,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Medium
             )
-
             Spacer(modifier = Modifier.height(4.dp))
-
             Text(
-                text = "LQI Trust: ${(neighbor.trustScore * 100).toInt()}% • RSSI: ${neighbor.rssi} dBm",
-                color = Color(0xFF34C759),
+                text = "UWB Range",
+                color = TextSecondary,
                 fontSize = 11.sp
             )
         }
+    }
+}
 
-        Spacer(modifier = Modifier.width(8.dp))
+@Composable
+fun UwbRadarPulse(neighborsCount: Int) {
+    val infiniteTransition = rememberInfiniteTransition(label = "Radar")
+    val scale by infiniteTransition.animateFloat(
+        initialValue = 0.8f,
+        targetValue = 2f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "Scale"
+    )
+    val alpha by infiniteTransition.animateFloat(
+        initialValue = 1f,
+        targetValue = 0f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(3000, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "Alpha"
+    )
 
-        Column(horizontalAlignment = Alignment.End) {
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(160.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        // Expanding ring
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .scale(scale)
+                .border(1.dp, GoldAccent.copy(alpha = alpha), CircleShape)
+        )
+        // Center Core
+        Box(
+            modifier = Modifier
+                .size(80.dp)
+                .clip(CircleShape)
+                .background(Brush.radialGradient(listOf(GoldAccent.copy(alpha = 0.4f), Color.Transparent)))
+                .border(2.dp, GoldAccent, CircleShape),
+            contentAlignment = Alignment.Center
+        ) {
             Text(
-                text = "${neighbor.batteryLevel}%",
-                color = if (neighbor.batteryLevel > 20) Color(0xFF34C759) else Color(0xFFFF453A),
-                fontSize = 12.sp,
+                text = "$neighborsCount",
+                color = LuxuryBlack,
+                fontSize = 24.sp,
                 fontWeight = FontWeight.Bold
-            )
-            Spacer(modifier = Modifier.height(2.dp))
-            Text(
-                text = "Direct Hop",
-                color = Color(0xFF8E8E93),
-                fontSize = 10.sp,
-                fontFamily = FontFamily.Monospace
             )
         }
     }

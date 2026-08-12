@@ -30,9 +30,8 @@ class SyncEngineImpl(
 
     override suspend fun integrateDelta(response: SyncResponse): Result<Unit> {
         return try {
-            for (protoMsg in response.missingMessagesList) {
-                // Map the Protobuf entity back to the Room message database entity
-                val entity = MessageEntity(
+            val entities = response.missingMessagesList.map { protoMsg ->
+                MessageEntity(
                     messageId = protoMsg.messageId.toHex(),
                     threadId = protoMsg.threadId.toHex(),
                     timestamp = protoMsg.timestamp,
@@ -41,8 +40,8 @@ class SyncEngineImpl(
                     parentsJson = "[]", // TODO: Implement DAG parents extraction
                     senderIdentity = protoMsg.senderIdentity.toHex()
                 )
-                messageDao.insertMessage(entity)
             }
+            messageDao.insertMessages(entities)
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)

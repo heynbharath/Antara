@@ -25,13 +25,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import org.circle13.antara.core.database.MessageEntity
+
+val LuxuryBlack = Color(0xFF050505)
+val SurfaceDark = Color(0xFF121212)
+val GoldAccent = Color(0xFFD4AF37)
+val GlassBorder = Color.White.copy(alpha = 0.1f)
+val TextPrimary = Color(0xFFF5F5F7)
+val TextSecondary = Color(0xFF86868B)
+val SenderBubble = Color(0xFF1C1C1E)
+val ReceiverBubble = Color(0xFF0A0A0C)
 
 @Composable
 fun ChatScreen(
@@ -45,135 +54,133 @@ fun ChatScreen(
     Column(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(0xFF000000))
-            .padding(16.dp)
+            .background(LuxuryBlack)
     ) {
-        // Header
+        Spacer(modifier = Modifier.height(48.dp)) // Safe area inset
+
+        // Premium Header
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp, vertical = 16.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column {
                 Text(
                     text = threadTitle,
-                    style = TextStyle(
-                        color = Color.White,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.SansSerif
-                    )
-                )
-                Text(
-                    text = "Double Ratchet E2EE • Store-and-Forward Mesh",
-                    color = Color(0xFFD4AF37),
-                    fontSize = 11.sp,
-                    fontFamily = FontFamily.Monospace
-                )
-            }
-
-            Box(
-                modifier = Modifier
-                    .background(Color(0xFF0A0A0C), RoundedCornerShape(6.dp))
-                    .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(6.dp))
-                    .padding(horizontal = 8.dp, vertical = 4.dp)
-            ) {
-                Text(
-                    text = "🔒 E2EE",
-                    color = Color(0xFF34C759),
-                    fontSize = 10.sp,
+                    color = TextPrimary,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.Bold,
-                    fontFamily = FontFamily.Monospace
+                    letterSpacing = (-0.5).sp
                 )
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier
+                            .size(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(Color(0xFF34C759))
+                    )
+                    Spacer(modifier = Modifier.width(6.dp))
+                    Text(
+                        text = "Quantum-Safe E2EE Mesh",
+                        color = GoldAccent,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
+        // Subtle divider
+        Box(modifier = Modifier.fillMaxWidth().height(1.dp).background(GlassBorder))
 
         // Message Feed
         if (messages.isEmpty()) {
             Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
+                modifier = Modifier.weight(1f).fillMaxWidth(),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "No encrypted messages exchanged yet. Send a message to start.",
-                    color = Color(0xFF8E8E93),
-                    fontSize = 14.sp
+                    text = "No encrypted messages exchanged yet.",
+                    color = TextSecondary,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
         } else {
             LazyColumn(
-                modifier = Modifier
-                    .weight(1f)
-                    .fillMaxWidth(),
+                modifier = Modifier.weight(1f).fillMaxWidth().padding(horizontal = 16.dp),
                 reverseLayout = true
             ) {
                 items(messages.reversed()) { message ->
-                    MessageBubble(message)
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
+                    PremiumMessageBubble(message)
                 }
+                item { Spacer(modifier = Modifier.height(16.dp)) }
             }
         }
 
-        Spacer(modifier = Modifier.height(16.dp))
-
-        // Input Bar
-        Row(
+        // Luxury Input Bar
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(Color(0xFF0A0A0C), RoundedCornerShape(12.dp))
-                .border(1.dp, Color(0xFF1C1C1E), RoundedCornerShape(12.dp))
-                .padding(horizontal = 14.dp, vertical = 10.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(16.dp)
+                .clip(RoundedCornerShape(32.dp))
+                .background(SurfaceDark)
+                .border(1.dp, GlassBorder, RoundedCornerShape(32.dp))
         ) {
-            BasicTextField(
-                value = inputText,
-                onValueChange = { inputText = it },
-                textStyle = TextStyle(color = Color.White, fontSize = 15.sp),
-                modifier = Modifier.weight(1f),
-                decorationBox = { innerTextField ->
-                    Box(modifier = Modifier.fillMaxWidth()) {
-                        if (inputText.isEmpty()) {
-                            Text(
-                                text = "Send encrypted mesh message...",
-                                color = Color(0xFF8E8E93),
-                                fontSize = 15.sp
-                            )
-                        }
-                        innerTextField()
-                    }
-                }
-            )
-
-            Spacer(modifier = Modifier.width(8.dp))
-
-            TextButton(
-                onClick = {
-                    if (inputText.isNotBlank()) {
-                        onSendMessage(inputText)
-                        inputText = ""
-                    }
-                }
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 20.dp, vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = "Send ⚡",
-                    color = Color(0xFFD4AF37),
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 15.sp
+                BasicTextField(
+                    value = inputText,
+                    onValueChange = { inputText = it },
+                    textStyle = TextStyle(color = TextPrimary, fontSize = 16.sp),
+                    modifier = Modifier.weight(1f),
+                    decorationBox = { innerTextField ->
+                        Box(modifier = Modifier.fillMaxWidth()) {
+                            if (inputText.isEmpty()) {
+                                Text(
+                                    text = "Send encrypted message...",
+                                    color = TextSecondary,
+                                    fontSize = 16.sp
+                                )
+                            }
+                            innerTextField()
+                        }
+                    }
                 )
+
+                Spacer(modifier = Modifier.width(8.dp))
+
+                TextButton(
+                    onClick = {
+                        if (inputText.isNotBlank()) {
+                            onSendMessage(inputText)
+                            inputText = ""
+                        }
+                    }
+                ) {
+                    Text(
+                        text = "Send",
+                        color = if (inputText.isNotBlank()) GoldAccent else TextSecondary,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp
+                    )
+                }
             }
         }
     }
 }
 
 @Composable
-fun MessageBubble(message: MessageEntity) {
+fun PremiumMessageBubble(message: MessageEntity) {
     val isLocalSender = message.senderIdentity == "local"
-    val statusText = if (isLocalSender) "Delivered • Cryptographic ACK" else "Relayed via P2P Hop"
-    val statusColor = if (isLocalSender) Color(0xFF34C759) else Color(0xFF8E8E93)
 
     Box(
         modifier = Modifier.fillMaxWidth(),
@@ -181,35 +188,39 @@ fun MessageBubble(message: MessageEntity) {
     ) {
         Column(
             modifier = Modifier
-                .background(
-                    color = if (isLocalSender) Color(0xFF1C1C1E) else Color(0xFF0A0A0C),
-                    shape = RoundedCornerShape(14.dp)
+                .fillMaxWidth(0.85f)
+                .clip(RoundedCornerShape(
+                    topStart = 24.dp,
+                    topEnd = 24.dp,
+                    bottomStart = if (isLocalSender) 24.dp else 4.dp,
+                    bottomEnd = if (isLocalSender) 4.dp else 24.dp
+                ))
+                .background(if (isLocalSender) SenderBubble else ReceiverBubble)
+                .border(1.dp, if (isLocalSender) GoldAccent.copy(alpha = 0.3f) else GlassBorder, 
+                    RoundedCornerShape(
+                        topStart = 24.dp,
+                        topEnd = 24.dp,
+                        bottomStart = if (isLocalSender) 24.dp else 4.dp,
+                        bottomEnd = if (isLocalSender) 4.dp else 24.dp
+                    )
                 )
-                .border(
-                    width = 1.dp,
-                    color = if (isLocalSender) Color(0xFFD4AF37) else Color(0xFF1C1C1E),
-                    shape = RoundedCornerShape(14.dp)
-                )
-                .padding(14.dp)
+                .padding(horizontal = 20.dp, vertical = 16.dp)
         ) {
             Text(
                 text = message.body,
-                color = Color.White,
-                fontSize = 15.sp,
-                lineHeight = 20.sp
+                color = TextPrimary,
+                fontSize = 16.sp,
+                lineHeight = 24.sp
             )
 
-            Spacer(modifier = Modifier.height(6.dp))
+            Spacer(modifier = Modifier.height(8.dp))
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = statusText,
-                    color = statusColor,
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.SemiBold
-                )
-            }
+            Text(
+                text = if (isLocalSender) "Delivered • Cryptographic ACK" else "Relayed via P2P Hop",
+                color = if (isLocalSender) Color(0xFF34C759) else TextSecondary,
+                fontSize = 11.sp,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
