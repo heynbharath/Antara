@@ -220,14 +220,6 @@ fun AntaraMainContainer(
                     .putString("public_key_hex", newPubKey)
                     .apply()
                 isOnboardingCompleted = true
-                
-                // Force a clean restart to ensure all services and permissions initialize correctly from a fresh state
-                val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-                if (intent != null) {
-                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                    context.startActivity(intent)
-                    (context as? android.app.Activity)?.finish()
-                }
             }
         )
     } else {
@@ -235,14 +227,26 @@ fun AntaraMainContainer(
             onRequestPermissions()
         }
         
-        AntaraAppContent(
-            identity = userIdentity,
-            onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption,
-            onResetIdentity = {
-                prefs.edit().clear().apply()
-                isOnboardingCompleted = false
+        var renderError by remember { mutableStateOf<String?>(null) }
+        
+        if (renderError != null) {
+            Surface(modifier = Modifier.fillMaxSize(), color = Color.Black) {
+                Text(text = "CRASH: $renderError", color = Color.Red, modifier = Modifier.padding(32.dp))
             }
-        )
+        } else {
+            try {
+                AntaraAppContent(
+                    identity = userIdentity,
+                    onRequestBatteryOptimizationExemption = onRequestBatteryOptimizationExemption,
+                    onResetIdentity = {
+                        prefs.edit().clear().apply()
+                        isOnboardingCompleted = false
+                    }
+                )
+            } catch (e: Exception) {
+                renderError = e.stackTraceToString()
+            }
+        }
     }
 }
 
@@ -254,10 +258,27 @@ fun AntaraAppContent(
 ) {
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
+    
+    // Fallback states if DB fails
+    var neighborsState by remember { mutableStateOf<List<NeighborEntity>>(emptyList()) }
+    var dtnCountState by remember { mutableStateOf(0) }
+    
     val database = remember { AntaraRoomDatabase.getDatabase(context) }
-
-    val neighborsState by database.neighborDao().getAllNeighborsFlow().collectAsState(initial = emptyList(), context = Dispatchers.IO)
-    val dtnCountState by database.dtnPacketDao().getPacketCountFlow().collectAsState(initial = 0, context = Dispatchers.IO)
+    
+    LaunchedEffect(database) {
+        try {
+            database.neighborDao().getAllNeighborsFlow().collect { neighborsState = it }
+        } catch (e: Exception) {
+            android.util.Log.e("AntaraApp", "Flow error", e)
+        }
+    }
+    LaunchedEffect(database) {
+        try {
+            database.dtnPacketDao().getPacketCountFlow().collect { dtnCountState = it }
+        } catch (e: Exception) {
+            android.util.Log.e("AntaraApp", "Flow error", e)
+        }
+    }
 
     var activeTab by remember { mutableStateOf(NavigationTab.NODES) }
     var activeChatPeer by remember { mutableStateOf<NeighborEntity?>(null) }
