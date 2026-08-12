@@ -293,14 +293,26 @@ private fun IdentityStep(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "SECURE LOCAL KEYSTORE", color = Color(0xFF8E8E93), fontSize = 10.sp, fontWeight = FontWeight.Bold)
-                Text(
-                    text = "Regenerate Key ↻",
-                    color = Color(0xFF0A84FF),
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.clickable { onRegenerate() }
-                )
+                Text(text = "🔒 SECURE LOCAL KEYSTORE", color = Color(0xFF8E8E93), fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                
+                val context = androidx.compose.ui.platform.LocalContext.current
+                
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable { 
+                            onRegenerate()
+                            android.widget.Toast.makeText(context, "New hardware keypair generated securely.", android.widget.Toast.LENGTH_SHORT).show()
+                        }
+                        .padding(horizontal = 8.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "Regenerate ↻",
+                        color = Color(0xFF0A84FF),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
             }
         }
     }
