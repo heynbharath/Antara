@@ -110,11 +110,16 @@ fun OnboardingScreen(
 
         // Action Button
         Column(modifier = Modifier.fillMaxWidth()) {
+            val context = androidx.compose.ui.platform.LocalContext.current
+            val keyboardController = androidx.compose.ui.platform.LocalSoftwareKeyboardController.current
+            
             Button(
                 onClick = {
+                    keyboardController?.hide()
                     if (step == 0) {
                         step = 1
                     } else {
+                        android.widget.Toast.makeText(context, "Entering Antara Mesh...", android.widget.Toast.LENGTH_SHORT).show()
                         onCompleteOnboarding(
                             fullName.ifBlank { "Antara Node" },
                             username.ifBlank { "node_user" },
