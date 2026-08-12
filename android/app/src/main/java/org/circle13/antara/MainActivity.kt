@@ -220,6 +220,14 @@ fun AntaraMainContainer(
                     .putString("public_key_hex", newPubKey)
                     .apply()
                 isOnboardingCompleted = true
+                
+                // Force a clean restart to ensure all services and permissions initialize correctly from a fresh state
+                val intent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+                if (intent != null) {
+                    intent.addFlags(android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP or android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    context.startActivity(intent)
+                    (context as? android.app.Activity)?.finish()
+                }
             }
         )
     } else {
