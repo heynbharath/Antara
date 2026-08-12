@@ -112,8 +112,8 @@ fun OnboardingScreen(
         Column(modifier = Modifier.fillMaxWidth()) {
             Button(
                 onClick = {
-                    if (step < 1) {
-                        step++
+                    if (step == 0) {
+                        step = 1
                     } else {
                         onCompleteOnboarding(
                             fullName.ifBlank { "Antara Node" },
